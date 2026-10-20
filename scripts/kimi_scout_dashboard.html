@@ -311,6 +311,12 @@
   // Old servers have no cache metadata. New servers explicitly distinguish
   // response receipt from the last successful historical/liveness observation.
   const snapshotFresh = () => state.snapshot == null || state.snapshot.stale === false;
+  const hasLiveStatus = () => Object.prototype.hasOwnProperty.call(state, "live_status");
+  const liveFresh = () => hasLiveStatus() ? state.live_status?.stale === false : snapshotFresh();
+  const runtimeData = () => (hasLiveStatus() ? state.live_status?.runtime : state.runtime) || {};
+  const researchData = () => hasLiveStatus() ? state.live_status?.research : state.research;
+  const deliveryData = () => hasLiveStatus() ? state.live_status?.delivery : state.delivery;
+  const runtimeFresh = () => liveFresh() && (!hasLiveStatus() || state.live_status?.runtime != null);
   const observationTime = () => state.snapshot?.served_at ?? state.now;
   const runtimeHeartbeatFresh = runtime => {
     const age = Number(observationTime()) - Number(runtime.heartbeat_at);
@@ -318,16 +324,16 @@
   };
   const providerRecoveryPending = runtime => runtime.state === "RUNNING" && Number.isInteger(runtime.provider_error_cycles) && runtime.provider_error_cycles > 0;
   function renderBriefing() {
-    const activity = state.activity || {}, runtime = state.runtime || {}, research = state.research || {};
+    const activity = state.activity || {}, runtime = runtimeData(), research = researchData() || {};
     const counts = state.summary?.counts || {}, limit = Math.max(1, Math.min(100, Number(runtime.concurrency) || 4));
     const heartbeatFresh = runtimeHeartbeatFresh(runtime);
-    const live = snapshotFresh() && runtime.alive === true && heartbeatFresh && !["STOPPED", "OFFLINE"].includes(runtime.state);
-    const occupied = live ? Math.max(0, Number(runtime.active ?? counts.RUNNING) || 0) : 0;
-    const delivery = state.delivery && typeof state.delivery === "object" && !Array.isArray(state.delivery) ? state.delivery : null;
+    const live = runtimeFresh() && runtime.alive === true && heartbeatFresh && !["STOPPED", "OFFLINE"].includes(runtime.state);
+    const occupied = live ? Math.max(0, Number(runtime.active ?? (snapshotFresh() ? counts.RUNNING : 0)) || 0) : 0;
+    const delivery = deliveryData() && typeof deliveryData() === "object" && !Array.isArray(deliveryData()) ? deliveryData() : null;
     const deliveryLimit = Math.max(0, Number(delivery?.concurrency) || 0);
-    const deliveryLive = snapshotFresh() && delivery?.alive === true && delivery.heartbeat_fresh === true && !["STOPPED", "OFFLINE"].includes(delivery.state);
+    const deliveryLive = liveFresh() && delivery?.alive === true && delivery.heartbeat_fresh === true && !["STOPPED", "OFFLINE"].includes(delivery.state);
     const deliveryOccupied = deliveryLive ? Math.max(0, Number(delivery.active) || 0) : 0;
-    text("totalCapacity", (snapshotFresh() ? number(occupied + deliveryOccupied) : "—") + " / " + number(limit + deliveryLimit));
+    text("totalCapacity", (runtimeFresh() ? number(occupied + deliveryOccupied) : "—") + " / " + number(limit + deliveryLimit));
     text("totalCapacityBreakdown", "搜索 " + (live ? number(occupied) : "未确认") + " / " + number(limit) + " · 复现 " + (delivery ? (deliveryLive ? number(deliveryOccupied) : "未确认") + " / " + number(deliveryLimit) : "暂无状态"));
     text("totalCapacityNote", (!live || (delivery && !deliveryLive) ? "仅合计已确认在途任务；离线或心跳过期部分不计入占用。" : "进程存活且心跳新鲜。") + "待复核结果不占槽位；CPU 容器与 GPU 设备不另加槽位。");
     text("recentCompleted", number(activity.completed));
@@ -340,17 +346,18 @@
     text("capacityLabel", "搜索 / 反证槽位 " + occupied + " / " + limit);
     text("capacityValue", live ? Math.round(100 * occupied / limit) + "%" : "未确认在线");
     $("capacityMeter").max = limit; $("capacityMeter").value = occupied;
-    let flow = "运行中 · 已排队 " + number(counts.PENDING || 0) + " 个任务";
-    if (!snapshotFresh()) flow = "保存快照已过期 · 不把历史状态当作实时运行";
+    const queueEmpty = snapshotFresh() ? !counts.PENDING : runtime.budget_admission?.status === "NO_PENDING_JOB";
+    let flow = snapshotFresh() ? "运行中 · 已排队 " + number(counts.PENDING || 0) + " 个任务" : "运行中 · " + number(occupied) + " 个调用在途；历史统计更新中";
+    if (!runtimeFresh()) flow = hasLiveStatus() ? "当前运行状态不可用 · 等待新采样" : "保存快照已过期 · 不把历史状态当作实时运行";
     else if (!runtime.alive) flow = "Scout 离线 · 当前显示已保存的记录";
     else if (!heartbeatFresh) flow = "心跳待确认 · 不把保存状态当作实时运行";
     else if (runtime.state === "COOLDOWN") flow = "服务退避中 · 冷却至 " + time(runtime.cooldown_until);
     else if (runtime.state !== "RUNNING") flow = "进程状态：" + (labels[runtime.state] || runtime.state || "未知");
     else if (providerRecoveryPending(runtime)) flow = "上次服务调用失败 · 恢复尚未确认；空队列不代表服务已恢复";
-    else if (!counts.PENDING && research.phase === "REFILLING") flow = "正在补充源码材料 · 暂无排队任务，空槽不代表模型限流";
-    else if (!occupied && !counts.PENDING) flow = "等待新材料 · 进程仍在线";
+    else if (queueEmpty && research.phase === "REFILLING") flow = "正在补充源码材料 · 暂无排队任务，空槽不代表模型限流";
+    else if (!occupied && queueEmpty) flow = "等待新材料 · 进程仍在线";
     if (state.stop_control?.present === true) {
-      flow += !snapshotFresh() ? " · 已请求停止，在途状态待确认" : runtime.alive ? " · 已请求停止，等待在途调用结束" : " · STOP 阻止重新启动；检查原因后再手动恢复";
+      flow += !runtimeFresh() ? " · 已请求停止，在途状态待确认" : runtime.alive ? " · 已请求停止，等待在途调用结束" : " · STOP 阻止重新启动；检查原因后再手动恢复";
       if (typeof state.stop_control.reason === "string") flow += "：" + state.stop_control.reason;
     }
     text("flowStatus", flow);
@@ -365,7 +372,7 @@
     }) : [node("div", "muted tiny", "仓库汇总尚未提供，请等待看板服务更新。") ]));
   }
   function renderResearch() {
-    const research = state.research;
+    const research = researchData();
     $("researchPanel").hidden = !research || typeof research !== "object";
     if (!research || typeof research !== "object") return;
     text("researchObjective", research.objective || "未提供研究目标");
@@ -393,13 +400,13 @@
       text("deliveryGpuSource", "仓库 " + plain(gpu.repo) + " · 线索 " + plain(gpu.lead_id) + " · GPU " + plain(gpu.gpu_uuid));
       text("deliveryGpuScope", "测试范围：" + (plain(gpu.scope) || "适配后的单模块测试"));
     }
-    const delivery = state.delivery;
+    const delivery = deliveryData();
     $("deliveryPanel").hidden = !delivery || typeof delivery !== "object" || Array.isArray(delivery);
     if ($("deliveryPanel").hidden) return;
     const deliveryLabels = {PENDING:"排队",GENERATING:"生成测试",TESTING:"执行测试",REPAIRING:"修补中",REVIEWING:"旧版复核中",OWNER_REVIEW_REQUIRED:"A/B 已复现 · 待 owner 终审",PR_OPEN:"关联 PR 的候选记录",GPU_REVIEW_REQUIRED:"GPU 测试已生成 · 尚未执行",REPRODUCED:"旧失败 / 新通过 · 待复核",NO_BUG:"模型判定无缺陷",ENVIRONMENT_BLOCKED:"环境受限",INCONCLUSIVE:"未得结论",FAILED:"失败"};
     const counts = delivery.counts && typeof delivery.counts === "object" ? delivery.counts : {};
-    const live = snapshotFresh() && delivery.alive === true && delivery.heartbeat_fresh === true && delivery.state !== "STOPPED";
-    const status = !snapshotFresh() ? "快照待更新" : !delivery.alive ? (delivery.state === "STOPPED" ? "已停止" : "进程离线") : !delivery.heartbeat_fresh ? "心跳待确认" : delivery.state === "STOPPED" ? "已停止" : "运行中";
+    const live = liveFresh() && delivery.alive === true && delivery.heartbeat_fresh === true && delivery.state !== "STOPPED";
+    const status = !liveFresh() ? "快照待更新" : !delivery.alive ? (delivery.state === "STOPPED" ? "已停止" : "进程离线") : !delivery.heartbeat_fresh ? "心跳待确认" : delivery.state === "STOPPED" ? "已停止" : "运行中";
     $("deliveryState").className = "badge" + (live ? " running" : "");
     text("deliveryState", status);
     text("deliveryCapacity", (live ? number(delivery.active) : "—") + " / " + number(delivery.concurrency));
@@ -472,11 +479,12 @@
     }));
   }
   function renderOverview() {
-    const summary = state.summary || {}, counts = summary.counts || {}, runtime = state.runtime || {};
+    const summary = state.summary || {}, counts = summary.counts || {}, runtime = runtimeData();
     const count = key => Number(counts[key] || 0);
     text("totalJobs", number(summary.total_jobs ?? state.jobs.length));
     text("completedJobs", "已结束 " + number((summary.total_jobs ?? state.jobs.length) - count("RUNNING") - count("PENDING")) + " · 失败 " + number(count("FAILED")));
-    text("runningJobs", snapshotFresh() && runtime.alive === true ? number(count("RUNNING")) : "—"); text("pendingJobs", (snapshotFresh() ? "排队等待 " : "历史排队 ") + number(count("PENDING")) + " 个任务");
+    const running = Number.isInteger(runtime.active) && runtime.active >= 0 ? runtime.active : snapshotFresh() ? count("RUNNING") : null;
+    text("runningJobs", runtimeFresh() && runtime.alive === true && running != null ? number(running) : "—"); text("pendingJobs", (snapshotFresh() ? "排队等待 " : "历史排队 ") + number(count("PENDING")) + " 个任务");
     text("reviewJobs", number(count("REVIEW"))); text("reportedTokens", compact(summary.reported_tokens));
     text("candidateRoots", summary.candidate_roots == null ? "待验证 · 非去重线索数" : number(summary.candidate_roots) + " 条候选链 · 非去重线索数");
     $("reportedTokens").title = number(summary.reported_tokens);
@@ -485,37 +493,38 @@
     const isAlive = runtime.alive === true;
     const runtimeState = isAlive ? runtime.state : "STOPPED";
     const recoveryPending = isAlive && runtimeHeartbeatFresh(runtime) && providerRecoveryPending(runtime);
-    $("runtimeBadge").className = "badge " + (!snapshotFresh() ? "" : runtimeState === "COOLDOWN" || recoveryPending ? "cooldown" : isAlive ? "running" : "");
-    text("runtimeLabel", !snapshotFresh() ? "快照已过期，运行状态待确认" : recoveryPending ? "服务恢复待确认" : isAlive ? (runtimeState === "RUNNING" ? (count("RUNNING") || count("PENDING") ? "进程运行中" : "运行中 · 等待新材料") : labels[runtimeState] || runtimeState || "运行中") : "守护进程未运行");
-    $("runtimeBadge").firstElementChild.className = "dot" + (snapshotFresh() && isAlive && runtimeState === "RUNNING" && !recoveryPending ? " live" : "");
+    $("runtimeBadge").className = "badge " + (!runtimeFresh() ? "" : runtimeState === "COOLDOWN" || recoveryPending ? "cooldown" : isAlive ? "running" : "");
+    text("runtimeLabel", !runtimeFresh() ? (hasLiveStatus() ? "当前运行状态不可用，等待新采样" : "快照已过期，运行状态待确认") : recoveryPending ? "服务恢复待确认" : isAlive ? (runtimeState === "RUNNING" ? (running || snapshotFresh() && count("PENDING") ? "进程运行中" : "运行中 · 等待新材料") : labels[runtimeState] || runtimeState || "运行中") : "守护进程未运行");
+    $("runtimeBadge").firstElementChild.className = "dot" + (runtimeFresh() && isAlive && runtimeState === "RUNNING" && !recoveryPending ? " live" : "");
     const runtimeParts = ["搜索 / 反证并发上限 " + (runtime.concurrency ?? "—"), "心跳 " + time(runtime.heartbeat_at)];
     if (runtime.queue_policy === "review_weighted") runtimeParts.push("调度偏好：发现 3 / 复核 3 / 复现计划 2，空位借用");
     if (runtime.pid) runtimeParts.unshift("PID " + runtime.pid);
     if (runtimeState === "COOLDOWN") runtimeParts.push("冷却至 " + time(runtime.cooldown_until));
     if (recoveryPending) runtimeParts.push("最近服务恢复待确认 · 准入上限 " + number(runtime.admission_limit));
-    const collectionTime = state.research?.updated_at || state.feed?.at;
+    const collectionTime = researchData()?.updated_at || state.feed?.at;
     if (collectionTime) runtimeParts.push("采集 " + time(collectionTime));
     text("runtimeMeta", runtimeParts.join(" · "));
     const feedErrors = (state.feed?.errors || []).map(error => "资料采集：" + plain(error));
-    const warnings = [...(state.warnings || []).map(plain), ...feedErrors];
+    const warnings = [...((hasLiveStatus() ? state.live_status?.warnings : state.warnings) || []).map(plain), ...feedErrors];
     if (!snapshotFresh()) warnings.push("历史快照已过期，采样距今 " + duration(state.snapshot?.age_seconds) + (state.snapshot?.refresh_failed ? "；刷新失败，保留上次数据。" : "；正在更新。") + "保存的 RUNNING 和资源采样不是当前状态。");
     const workerCount = Math.max(1, Math.min(100, Number(runtime.concurrency) || 4));
-    if (count("RUNNING") > workerCount) warnings.push("运行任务超过配置槽位；请检查是否有遗留状态，其他任务可在历史中查看。");
-    if (!isAlive && count("RUNNING")) warnings.push("守护进程未运行，RUNNING 为保存状态，任务可能已中断。");
+    if (runtimeFresh() && running > workerCount) warnings.push("运行任务超过配置槽位；请检查是否有遗留状态，其他任务可在历史中查看。");
+    if (runtimeFresh() && !isAlive && count("RUNNING")) warnings.push("守护进程未运行，RUNNING 为保存状态，任务可能已中断。");
     setNotice("warnings", warnings.join("\n"));
-    const active = snapshotFresh() && isAlive ? state.jobs.filter(job => job.state === "RUNNING").sort((a,b) => (date(a.started)?.getTime() || 0) - (date(b.started)?.getTime() || 0)) : [];
+    const detailsFresh = snapshotFresh() && (!hasLiveStatus() || state.runtime?.pid === runtime.pid);
+    const active = detailsFresh && isAlive ? state.jobs.filter(job => job.state === "RUNNING").sort((a,b) => (date(a.started)?.getTime() || 0) - (date(b.started)?.getTime() || 0)).slice(0, running ?? workerCount) : [];
     const workerNodes = [];
     for (let i = 0; i < workerCount; i++) {
       const job = active[i], worker = node("button", "worker" + (job ? " active" : ""));
       worker.type = "button"; worker.disabled = !job;
-      const top = node("div", "worker-top"); top.append(node("span", "worker-label", "WORKER " + String(i + 1).padStart(2,"0")), job ? badge(job.state) : node("span", "badge", snapshotFresh() ? "空闲" : "未确认"));
-      worker.append(top, node("div", "worker-name", job ? job.name : snapshotFresh() ? "等待新任务" : "等待快照更新"), node("div", "worker-info", job ? (job.repo || "公开源码") + " · " + stageLabel(job.stage) + " · " + duration(job.elapsed_seconds) : !snapshotFresh() ? "保存快照已过期，等待更新" : isAlive ? "任务分配后自动显示" : "守护进程未运行"));
+      const top = node("div", "worker-top"); top.append(node("span", "worker-label", "WORKER " + String(i + 1).padStart(2,"0")), job ? badge(job.state) : node("span", "badge", detailsFresh ? "空闲" : "未确认"));
+      worker.append(top, node("div", "worker-name", job ? job.name : detailsFresh ? "等待新任务" : "等待快照更新"), node("div", "worker-info", job ? (job.repo || "公开源码") + " · " + stageLabel(job.stage) + " · " + duration(job.elapsed_seconds) : !detailsFresh ? "任务详情等待历史快照更新；当前在途数量见上方" : isAlive ? "任务分配后自动显示" : "守护进程未运行"));
       if (job) { worker.title = job.name; worker.addEventListener("click", () => selectJob(job.id)); }
       workerNodes.push(worker);
     }
     $("workers").replaceChildren(...workerNodes);
     text("workersHeading", "搜索 / 反证槽位 · " + workerCount + " 并发");
-    text("refreshTime", "请求成功 " + time(lastGoodAt) + " · 数据采样 " + time(state.now) + (snapshotFresh() ? "" : "（已过期）"));
+    text("refreshTime", "请求成功 " + time(lastGoodAt) + (hasLiveStatus() ? " · 状态采样 " + time(state.live_status?.observed_at) : "") + " · 数据采样 " + time(state.now) + (snapshotFresh() ? "" : "（已过期）"));
     renderBriefing();
     renderResearch();
     renderDelivery();

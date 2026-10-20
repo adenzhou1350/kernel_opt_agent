@@ -144,3 +144,22 @@ The dashboard identifies this backend as `openai_http`
 and results retain the configured model alias. Neither high request throughput
 nor a valid source citation establishes correctness, novelty or PR readiness;
 owner-side independent reproduction and the target project's rules still apply.
+
+## Read-only dashboard observation scopes
+
+`GET /api/state` keeps its historical `now`, jobs/statistics and `snapshot`
+age/stale/refresh metadata. It also returns `live_status`: `observed_at`,
+`age_seconds`, `stale`, and current fixed-file `runtime`, `research`, `delivery`
+and `warnings`. This lightweight observation does not query historical SQLite
+rows or make old jobs, GPU samples, totals or provider results fresh. Missing,
+invalid JSON, oversized or out-of-inbox status artifacts are unavailable (`null`),
+not a reason to fall back to an older PID. Process existence plus a fresh heartbeat
+does not establish a healthy provider, completed test or available GPU.
+
+The page uses the independent status for current in-flight counts and process
+labels. Historical task names remain unconfirmed while that snapshot is stale
+or belongs to another controller PID. A slow/failed historical refresh retains
+its original age and warning. Old server responses without `live_status` keep
+their previous conservative whole-snapshot freshness behavior. This additive
+field does not change Host/Origin restrictions, the read-only routes, configured
+LAN exposure or the Scout worker; restarting the viewer must not restart research.

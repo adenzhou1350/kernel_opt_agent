@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import os
 import shutil
 import sqlite3
 import subprocess
@@ -51,7 +52,61 @@ class DashboardTests(unittest.TestCase):
 
     @staticmethod
     def payload(snapshot):
-        return {key: value for key, value in snapshot.items() if key != "snapshot"}
+        return {key: value for key, value in snapshot.items() if key not in ("snapshot", "live_status")}
+
+    def test_current_runtime_does_not_wait_for_or_relabel_old_history(self):
+        now = time.time()
+        scout.write_json(self.root / "runtime.json", {"pid": 11, "state": "STOPPED", "active": 0})
+        with patch.object(dashboard, "process_alive", return_value=False):
+            initial = self.inbox.cached_state()
+        self.inbox._snapshot_at = time.monotonic() - 60
+        self.inbox._snapshot_success_at = time.monotonic() - 60
+        scout.write_json(self.root / "runtime.json", {
+            "pid": 22, "state": "RUNNING", "active": 2, "concurrency": 4, "heartbeat_at": now,
+        })
+        started, release = threading.Event(), threading.Event()
+        def slow_history():
+            started.set()
+            if not release.wait(3):
+                raise TimeoutError("release the historical refresh")
+            return initial
+        with patch.object(self.inbox, "state", side_effect=slow_history), patch.object(dashboard, "process_alive", return_value=True):
+            try:
+                before = time.monotonic()
+                value = self.inbox.cached_state()
+                self.assertLess(time.monotonic() - before, 0.5)
+                self.assertTrue(started.wait(1))
+                self.assertTrue(value["snapshot"]["stale"])
+                self.assertEqual(value["runtime"]["pid"], 11)  # historical provenance unchanged
+                self.assertEqual(value["live_status"]["runtime"]["pid"], 22)
+                self.assertEqual(value["live_status"]["runtime"]["active"], 2)
+                self.assertTrue(value["live_status"]["runtime"]["alive"])
+                self.assertFalse(value["live_status"]["stale"])
+                self.assertEqual(self.inbox._snapshot["runtime"]["pid"], 11)
+                (self.root / "runtime.json").unlink()
+                self.assertIsNone(self.inbox.cached_state()["live_status"]["runtime"])
+            finally:
+                release.set()
+
+    def test_live_status_has_no_historical_sql_or_queue_side_effects(self):
+        before = (self.root / "scout.sqlite").read_bytes()
+        with patch.object(self.inbox, "rows", side_effect=AssertionError("historical scan")), patch.object(
+            self.inbox, "activity_rows", side_effect=AssertionError("historical scan")
+        ):
+            value = self.inbox.live_status()
+        self.assertIsNone(value["runtime"])
+        self.assertEqual(before, (self.root / "scout.sqlite").read_bytes())
+
+    def test_current_non_numeric_heartbeat_does_not_crash_status_read(self):
+        for heartbeat in (None, "not a timestamp", [], {}, True):
+            with self.subTest(heartbeat=heartbeat):
+                scout.write_json(self.root / "runtime.json", {
+                    "pid": 12, "state": "RUNNING", "heartbeat_at": heartbeat,
+                })
+                with patch.object(dashboard, "process_alive", return_value=True):
+                    value = self.inbox.live_status()
+                self.assertTrue(value["runtime"]["alive"])
+                self.assertTrue(value["warnings"])
 
     def test_read_only_database(self):
         before = (self.root / "scout.sqlite").read_bytes()
@@ -213,12 +268,25 @@ global.document={createElement:element,getElementById(id) {
       worker:$('workers').children[0].children[1].textContent,
       warning:$('warnings').textContent,refresh:$('refreshTime').textContent});
   }
+  state.snapshot={served_at:1600,age_seconds:600,stale:true};
+  for(const current of [
+    {observed_at:1600,stale:false,
+      runtime:{pid:22,alive:true,state:'RUNNING',heartbeat_at:1599,active:0,concurrency:2,budget_admission:{status:'NO_PENDING_JOB'}},
+      delivery:{alive:true,heartbeat_fresh:true,heartbeat_at:1599,state:'RUNNING',active:1,concurrency:3},warnings:[]},
+    {observed_at:1600,stale:false,runtime:null,delivery:null,warnings:[]},
+  ]) {
+    state.live_status=current; renderOverview();
+    result.push({total:$('totalCapacity').textContent,flow:$('flowStatus').textContent,
+      label:$('runtimeLabel').textContent,delivery:$('deliveryCapacity').textContent,
+      worker:$('workers').children[0].children[1].textContent,
+      running:$('runningJobs').textContent,warning:$('warnings').textContent});
+  }
   process.stdout.write(JSON.stringify(result));
 })();
 """
         result = subprocess.run([shutil.which("node"), "-"], input=harness + renderer + exercise,
                                 capture_output=True, text=True, encoding="utf-8", timeout=10, check=True)
-        fresh, stale, recovered = json.loads(result.stdout)
+        fresh, stale, recovered, current, unavailable = json.loads(result.stdout)
         self.assertEqual(fresh["total"], "3 / 5")
         self.assertEqual(fresh["worker"], "saved running task")
         self.assertEqual(stale["total"], "— / 5")
@@ -231,6 +299,17 @@ global.document={createElement:element,getElementById(id) {
         self.assertIn("已过期", stale["refresh"])
         self.assertEqual(recovered["total"], "3 / 5")
         self.assertEqual(recovered["worker"], "saved running task")
+        self.assertEqual(current["total"], "1 / 5")
+        self.assertEqual(current["delivery"], "1 / 3")
+        self.assertEqual(current["running"], "0")
+        self.assertIn("运行中", current["label"])
+        self.assertIn("等待新材料", current["flow"])
+        self.assertEqual(current["worker"], "等待快照更新")
+        self.assertIn("历史快照已过期", current["warning"])
+        self.assertNotIn("守护进程未运行", current["warning"])
+        self.assertEqual(unavailable["running"], "—")
+        self.assertIn("状态不可用", unavailable["label"])
+        self.assertIn("状态不可用", unavailable["flow"])
 
     @unittest.skipUnless(
         shutil.which("node"), "Node is needed for the offline DOM test"
@@ -1077,6 +1156,17 @@ process.stdout.write(JSON.stringify({phases:observations,http}));
                 self.assertGreaterEqual(state["snapshot"]["served_at"], state["now"])
                 self.assertGreaterEqual(state["snapshot"]["age_seconds"], 0)
                 self.assertNotIn("never", json.dumps(state))
+            scout.write_json(self.root / "runtime.json", {
+                "pid": os.getpid(), "state": "RUNNING", "active": 2, "heartbeat_at": time.time(),
+            })
+            with urlopen(base + "/api/state", timeout=3) as response:
+                current = json.load(response)
+                self.assertEqual(current["runtime"], state["runtime"])  # same historical cache
+                self.assertEqual(current["live_status"]["runtime"]["pid"], os.getpid())
+                self.assertEqual(current["live_status"]["runtime"]["active"], 2)
+                self.assertTrue(current["live_status"]["runtime"]["alive"])
+                self.assertFalse(current["live_status"]["stale"])
+                self.assertNotIn("never", json.dumps(current))
             with urlopen(base + "/api/state?research=provider.json", timeout=3) as response:
                 self.assertNotIn("never", response.read().decode("utf-8"))
             for path, headers, method, status in (

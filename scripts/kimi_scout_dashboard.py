@@ -323,9 +323,48 @@ class Inbox:
                 "refreshing": self._snapshot_refreshing,
                 "refresh_failed": self._snapshot_refresh_failed,
             }
-        # Read STOP without waiting for a historical SQLite refresh, and without
-        # mutating a snapshot held by another viewer.
-        return dict(snapshot, stop_control=stop_control(self.root), snapshot=observation)
+        # Fixed-file process observations do not wait for historical SQL. Keep
+        # their provenance separate: they do not refresh old jobs/statistics.
+        return dict(snapshot, stop_control=stop_control(self.root), snapshot=observation,
+                    live_status=self.live_status(max_age=max_age))
+
+    def live_status(self, max_age=30):
+        """Bounded current artifacts/process checks; no database/history scan.
+
+        Missing/malformed artifacts are unavailable, not evidence that an old
+        PID is still live or definitely stopped. Reads are non-atomic and do
+        not prove provider health, task completion or resource availability.
+        """
+        started, now = time.monotonic(), time.time()
+        runtime = read_artifact(self.root, "runtime.json") or None
+        research = read_artifact(self.root, "research.json") or None
+        delivery = read_artifact(self.root, "delivery/runtime.json") or None
+        warnings = []
+        if runtime is not None:
+            runtime["alive"] = process_alive(runtime.get("pid"))
+            if runtime.get("state") != "STOPPED" and not runtime["alive"]:
+                runtime["state"] = "OFFLINE"
+                warnings.append("Scout 进程未运行；页面仍可查看历史记录。")
+            heartbeat = runtime.get("heartbeat_at")
+            if runtime["alive"] and type(heartbeat) not in (int, float):
+                warnings.append("旧版进程没有心跳；存活不代表正在生成。")
+            elif runtime["alive"] and now - heartbeat > 180:
+                warnings.append("Scout 心跳超过 3 分钟未更新，请检查抓取或运行状态。")
+            if (self.root / "STOP").exists() and runtime["alive"]:
+                warnings.append("已请求停止；在途调用可能仍在完成。")
+        if delivery is not None:
+            delivery["alive"] = process_alive(delivery.get("pid"))
+            if not delivery["alive"] and delivery.get("state") != "STOPPED":
+                delivery["state"] = "OFFLINE"
+            heartbeat = delivery.get("heartbeat_at")
+            delivery["heartbeat_fresh"] = (
+                type(heartbeat) in (int, float) and 0 <= now - heartbeat <= 180
+            )
+            jobs = delivery.get("jobs")
+            delivery["jobs"] = [job for job in jobs if isinstance(job, dict)][:20] if isinstance(jobs, list) else []
+        age = max(0.0, time.monotonic() - started)
+        return {"observed_at": now, "age_seconds": round(age, 3), "stale": age >= max_age,
+                "runtime": runtime, "research": research, "delivery": delivery, "warnings": warnings}
 
     def rows(self, job_id=None, limit=None):
         # Do not call scout.connect(): its WAL setup/transactions are for writers.
@@ -433,26 +472,12 @@ class Inbox:
         }
 
     def state(self):
-        now = time.time()
-        runtime = read_artifact(self.root, "runtime.json")
+        current = self.live_status()
+        now = current["observed_at"]
+        runtime = current["runtime"] or {}
         feed = read_artifact(self.root, "last-feed.json")
-        research = read_artifact(self.root, "research.json") or None
-        delivery = read_artifact(self.root, "delivery/runtime.json") or None
+        research, delivery = current["research"], current["delivery"]
         delivery_gpu = read_artifact(self.root, "delivery/gpu-latest.json") or None
-        if delivery is not None:
-            delivery["alive"] = process_alive(delivery.get("pid"))
-            if not delivery["alive"] and delivery.get("state") != "STOPPED":
-                delivery["state"] = "OFFLINE"
-            heartbeat = delivery.get("heartbeat_at")
-            delivery["heartbeat_fresh"] = (
-                type(heartbeat) in (int, float) and 0 <= now - heartbeat <= 180
-            )
-            recent = delivery.get("jobs")
-            delivery["jobs"] = (
-                [job for job in recent if isinstance(job, dict)][:20]
-                if isinstance(recent, list)
-                else []
-            )
         # The inbox can contain tens of thousands of multi-KiB evidence packets.
         # Expand only the visible tail; all-history counters use a narrow SQL
         # projection so dashboard polling cannot starve the producer database.
@@ -463,18 +488,7 @@ class Inbox:
         }
         history = [self.activity_job(row, latest_usage) for row in self.activity_rows()]
         activity = activity_summary(history, research, now)
-        warnings = []
-        runtime["alive"] = process_alive(runtime.get("pid"))
-        if runtime.get("state") != "STOPPED" and not runtime["alive"]:
-            runtime["state"] = "OFFLINE"
-            warnings.append("Scout 进程未运行；页面仍可查看历史记录。")
-        heartbeat = runtime.get("heartbeat_at")
-        if runtime["alive"] and not heartbeat:
-            warnings.append("旧版进程没有心跳；存活不代表正在生成。")
-        elif runtime["alive"] and now - heartbeat > 180:
-            warnings.append("Scout 心跳超过 3 分钟未更新，请检查抓取或运行状态。")
-        if (self.root / "STOP").exists() and runtime["alive"]:
-            warnings.append("已请求停止；在途调用可能仍在完成。")
+        warnings = current["warnings"]
         if len(history) > 500:
             warnings.append("列表仅展示最近 500 项；汇总包含全部历史任务。")
         return {
