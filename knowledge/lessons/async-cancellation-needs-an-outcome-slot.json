@@ -1,0 +1,26 @@
+{
+  "id": "async-cancellation-needs-an-outcome-slot",
+  "title": "Async-to-sync cancellation needs an explicit outcome before notification",
+  "applies_when": "A Python coroutine bridge stores a result or exception in a slot and signals an event in finally, while a blocking caller interprets an untouched slot as a successful None result.",
+  "lesson": "Trace the outcome channel as well as the wakeup. Since Python 3.8, asyncio.CancelledError derives from BaseException, so except Exception does not publish it. A finally notification can wake the blocking caller while its result slot still contains the initial None. Reproduce through the complete imported bridge and a real generated synchronous backend method, not a copied catch block. Preserve normal values, original ordinary exceptions, cancellation cleanup and a subsequent healthy call. If the bridge already has an exception-delivery contract, explicitly store CancelledError so that existing caller-side propagation can raise it; do not equate a set event with successful completion.",
+  "avoid_when": "Do not catch all BaseException merely to cover asyncio cancellation: KeyboardInterrupt and SystemExit can have different control-flow contracts. A backend cancelling itself and a synchronous caller interrupting a running backend are opposite directions; similar cancellation wording does not establish duplicate ownership. Transporting a cancellation outcome does not add cancellation requests, wait for every child task, force-stop blocking I/O or prove bulk-operation cleanup. The linked fix is proposed, not merged; focused Windows/Linux native controls and a Windows project selection do not establish full CI, every remote protocol or better Scout recall/cost. This is an owner-led finding, not a prospective selector result.",
+  "evidence": [
+    {
+      "url": "https://docs.python.org/3/library/asyncio-exceptions.html#asyncio.CancelledError",
+      "note": "Documents cancellation semantics and the BaseException inheritance change in Python 3.8. Catching ordinary Exception alone therefore cannot populate a cancellation outcome."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/blob/941e6f910a1d4683f31a56a9adf78dccb50ecdcf/fsspec/asyn.py#L45-L112",
+      "note": "Pinned _runner publishes only Exception then always signals its event; sync starts with a None slot and already propagates stored BaseException objects. This identifies the complete bridge mechanism."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/pull/2343",
+      "note": "One-line explicit cancellation handling plus regressions for direct cancellation, real Task.cancel/finally, backend info and recovery. Reports a focused six-case Linux original/fixed comparison and 190-pass Windows selection; full CI and remote-storage integration are not claimed."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/pull/2342",
+      "note": "Distinct proposal cancels the submitted future when the synchronous event wait raises KeyboardInterrupt. It does not implement worker-to-caller cancellation outcome delivery; neither proposal establishes safety of every combined platform path."
+    }
+  ],
+  "status": "validated"
+}
