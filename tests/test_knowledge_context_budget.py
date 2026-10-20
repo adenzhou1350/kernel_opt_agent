@@ -12,6 +12,23 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_versioned_read_advice_keeps_metadata_and_data_controls(self):
+        result = lesson_suggestions(
+            "object generation metadata version selector range read size",
+            source_urls=[
+                "https://raw.githubusercontent.com/fsspec/gcsfs/"
+                "905240e42e1dc3069ea58852feec19fd682c1685/gcsfs/core.py"
+            ],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "object-version-range-read-consistency")
+        self.assertIn("unequal lengths", card["lesson"])
+        self.assertIn("Mocking fs.info hides", card["lesson"])
+        self.assertIn("metadata defect predates", card["avoid_when"])
+        self.assertIn("not real GCS", card["avoid_when"])
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+
     def test_packed_cache_advice_separates_base_and_stride_contracts(self):
         result = lesson_suggestions(
             "MXFP8 packed cache stride alignment",

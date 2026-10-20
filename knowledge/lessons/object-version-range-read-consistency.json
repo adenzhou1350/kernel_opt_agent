@@ -1,0 +1,18 @@
+{
+  "id": "object-version-range-read-consistency",
+  "title": "Match object revisions before bounding range reads",
+  "applies_when": "A versioned object reader accepts a generation or revision separately from the path, obtains size through info(), then bounds reads or cache fills with that metadata.",
+  "lesson": "Trace the version selector through metadata lookup as well as the data request. A correct generation on the download URL cannot compensate for a size obtained from the latest version. Use two real stored versions with unequal lengths, disable or invalidate listing caches, and compare keyword and path-suffix selectors against the storage API. On pinned GCSFS main, info(path, generation=old) selects current metadata while info(path + '#' + old) selects the old object. A native probe using the pending generation-pinning PR's core.py over main then reads only b'old' from b'older-version-is-longer' after a three-byte version replaces it: the new size bounds a correctly versioned data request. Include a nonexistent-generation control and assert complete contents, not just request arguments or a prefix. Mocking fs.info hides this boundary; reuse an official isolated emulator when real cloud access is unnecessary.",
+  "avoid_when": "The demonstrated runtime is Python3.12 with official fake-gcs-server1.56.1, not real GCS, the full peer PR tree/CI, every cache mode, concurrent object mutation or all versioned backends. The metadata defect predates the peer PR; the comment is not a new-regression or maintainer-acceptance claim. Explicit generation and version_aware path parsing are distinct contracts. Preserve unsupported-selector behavior rather than pinning all readers by assumption. This owner-led known-case probe is not a blinded Scout discovery or measured selector/cost improvement. Coordinate with the existing PR rather than opening a competing implementation.",
+  "evidence": [
+    {
+      "url": "https://github.com/fsspec/gcsfs/blob/905240e42e1dc3069ea58852feec19fd682c1685/gcsfs/core.py",
+      "note": "_info coalesces the explicit generation but calls _get_object(path), whose selector comes only from split_path(path). GCSFile.details passes its separately stored generation to fs.info. Source mechanism, not a real-cloud test."
+    },
+    {
+      "url": "https://github.com/fsspec/gcsfs/pull/1099#issuecomment-6282550535",
+      "note": "Public contributor reproduction: two stored versions and the real SDK on the official emulator distinguish keyword metadata from suffix metadata. Pinned peer core over main produces a truncated explicit-generation read. The scope explicitly excludes a full peer checkout/CI and real GCS; no repair or measured performance is claimed."
+    }
+  ],
+  "status": "validated"
+}
