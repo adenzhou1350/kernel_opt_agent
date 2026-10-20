@@ -216,6 +216,14 @@ class ExactDefinitionReadTests(unittest.TestCase):
         self.assertEqual(calls, [OTHER])
         self.assertEqual(progress["code_search_requests"], 1)
 
+    def test_cached_target_reserved_for_test_request_keeps_search_fallback(self):
+        calls, _, progress = self.run_followup(
+            code_search=True,
+            test_request={"path": PATH, "max_lines": 80},
+        )
+        self.assertEqual(calls, [OTHER])
+        self.assertEqual(progress["code_search_requests"], 1)
+
     def test_cached_target_does_not_add_an_ineligible_path(self):
         calls, _, _ = self.run_followup(ranked_paths=[OTHER])
         self.assertEqual(calls, [OTHER])

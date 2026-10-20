@@ -1821,7 +1821,8 @@ class ResearchProducer:
                 cached_target = cached_qualified_definition_path(
                     packet, snapshot, analysis_value, cached_source
                 )
-                if cached_target in paths:
+                if (cached_target in paths
+                        and not (test_request and cached_target == test_request["path"])):
                     # An exact cached declaration answers the explicit request.
                     # Do not search for new import sites before reading its body.
                     paths = [cached_target] + [p for p in paths if p != cached_target]
