@@ -41,6 +41,8 @@ def main():
         "--output", type=Path, required=True, help="New private evidence directory"
     )
     args = parser.parse_args()
+    sys.path.insert(0, str(HERE.parents[1] / "scripts"))
+    from scout_agent_sandbox_environment import CPUSandboxEnvironment, SandboxFailure
     source = args.source.resolve() / "src/minisweagent"
     expected = json.loads((HERE / "source_sha256.json").read_text())
     assert {name: sha256(source / name) for name in expected} == expected
@@ -56,6 +58,7 @@ def main():
             source_commit=COMMIT,
             source_sha256=expected,
             client_sha256=sha256(args.client),
+            adapter_sha256=sha256(HERE.parents[1] / "scripts/scout_agent_sandbox_environment.py"),
             actual_model_api_calls=0,
         ),
     )
@@ -103,73 +106,12 @@ def main():
     ]
     timeout_command = "python3 -B -c " + shlex.quote("import time;time.sleep(10)")
     allowed = set(commands + [timeout_command])
-    actions = []
-    uncertain = False
-
-    class SandboxFailure(RuntimeError):
-        pass
-
-    class SandboxEnvironment:
-        def execute(self, action, cwd="", *, timeout=None):
-            nonlocal uncertain
-            assert not cwd or cwd == "/work"
-            assert set(action) == {"command"} and action["command"] in allowed
-            uncertain = True
-            result = client.call(
-                "run",
-                dict(
-                    session_id=session_id,
-                    command=action["command"],
-                    timeout=timeout or 5,
-                ),
-            )
-            uncertain = False
-            actions.append(result)
-            record("actions.json", actions)
-            assert result["image"] == health["image"] and result["container_removed"]
-            isolation = result["isolation"]
-            assert isolation["NetworkMode"] == "none" and isolation["ReadonlyRootfs"]
-            assert isolation["Memory"] == 512 * 1024**2 and isolation["PidsLimit"] == 64
-            assert not isolation["Privileged"] and not isolation["Binds"]
-            if (
-                result.get("status") != "completed"
-                or result.get("termination")
-                or not result.get("workspace_persisted")
-            ):
-                raise SandboxFailure(
-                    result.get("termination")
-                    or result.get("error")
-                    or "persistence failure"
-                )
-            output = dict(
-                output=result["stdout"] + result["stderr"],
-                returncode=result["exit_code"],
-                exception_info="",
-            )
-            LocalEnvironment._check_finished(self, output)
-            return output
-
-        def get_template_vars(self, **kwargs):
-            return dict(cwd="/work", system="Linux", **kwargs)
-
-        def serialize(self):
-            return dict(
-                info=dict(
-                    config=dict(
-                        environment_type="reviewed_cpu_sandbox_adapter",
-                        environment=dict(
-                            profile="cpu", session_id=session_id, image=health["image"]
-                        ),
-                    )
-                )
-            )
+    env = None
 
     class ObservedModel(DeterministicModel):
         def query(self, messages, **kwargs):
             self.observed.append(copy.deepcopy(messages))
             return super().query(messages, **kwargs)
-
-    env = SandboxEnvironment()
 
     def make_agent(limit, filename):
         model = ObservedModel(
@@ -193,6 +135,12 @@ def main():
 
     started = time.monotonic()
     try:
+        env = CPUSandboxEnvironment(
+            client.call, session=session, health=health, record=record,
+            finish=LocalEnvironment._check_finished, allowed_commands=allowed,
+            max_actions=5, command_timeout=5,
+        )
+        actions = env.results
         for name in ("fixture_subject.py", "fixture_checks.py"):
             client.call(
                 "write",
@@ -254,11 +202,11 @@ def main():
     except BaseException as exc:
         record(
             "failure.json",
-            dict(type=type(exc).__name__, message=str(exc), uncertain=uncertain),
+            dict(type=type(exc).__name__, message=str(exc), uncertain=bool(env and env.uncertain)),
         )
         raise
     finally:
-        if not uncertain:
+        if env is None or not env.uncertain:
             record("release.json", client.call("release", dict(session_id=session_id)))
 
 

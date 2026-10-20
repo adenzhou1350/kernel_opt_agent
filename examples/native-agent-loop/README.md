@@ -93,3 +93,50 @@ no-model example, make Scout depend on LiteLLM, or establish a matched discovery
 benchmark. The source/dependency/command and accounting differences matter;
 do not compare its five responses with the earlier three-response text check
 as an effectiveness or cost result.
+
+## Optional non-menu CPU command interface
+
+The stdlib-only [CPUSandboxEnvironment](../../scripts/scout_agent_sandbox_environment.py)
+is shared by this example and optional research callers. It accepts either a
+literal `allowed_commands` collection or explicit `allow_dynamic_commands=True`,
+never both. Dynamic mode permits non-menu command strings **inside the configured
+CPU sandbox**, not on its controller. It does not validate a command's meaning
+or make hostile kernel/exploit tests safe. Review the task and uploaded sources;
+never upload credentials, hidden answers or unnecessary production data.
+
+The caller owns health/session creation, source upload, the model and session
+release. Pass the broker's actual CPU `create` result as `session` (a GPU or
+released session is rejected before dispatch), the actual CPU `health` result,
+the existing configured `client.call`, a private JSON recorder
+and, for mini-SWE-agent, `LocalEnvironment._check_finished` as the `finish`
+callback. Preserve the session ID before any dispatch. Native actions may carry
+`tool_call_id`; only `command` and the controller's bounded timeout reach the
+broker. No model action can choose the SSH target, profile, image or resources.
+Budgets and dynamic/literal mode are retained in environment serialization.
+
+Each action records its intent before calling the broker and retains the
+response before interpreting it. Ordinary command nonzero exits, including a
+syntax error, remain feedback; no command is rewritten. Timeout, isolation,
+cleanup, output/persistence failure or an uncertain transport stops reuse.
+After uncertainty, inspect the **same** session's `history/evidence` before
+another execution; do not automatically replay it or fall back to a host shell.
+Successful `finish` raises the upstream submission signal only after the actual
+result is retained. The caller still releases its owned session in `finally`.
+
+An additional **scripted, no-model** check exercises non-menu syntax, error
+feedback and a within-session toy edit:
+
+```sh
+python -B examples/native-agent-loop/check_dynamic.py \
+  --source /path/to/reviewed/mini-swe-agent \
+  --client /path/to/configured/agent-sandbox/client.py \
+  --output /path/to/NEW/private-dynamic-check
+```
+
+It deliberately runs invalid Python, confirms the error reaches the next
+scripted query, reads the subject, observes the known boundary failure, applies
+a script-specified `/work` edit, observes both checks passing, and submits.
+This demonstrates execution/state mechanics, **not** a model-generated repair,
+autonomous discovery or a budget-matched general-agent benchmark. The existing
+fixed-command example remains literal-only. Neither enables execution in the
+production Scout workers or changes their tool-free provider contract.

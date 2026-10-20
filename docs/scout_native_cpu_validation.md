@@ -195,6 +195,12 @@ Do not increase caps or disable resource guards merely to make a batch drain.
 
 ## Optional installed CPU sandbox adapter
 
+For a sequential agent rather than a two-arm verification screen, the optional
+[agent Environment and no-model controls](../examples/native-agent-loop/README.md#optional-non-menu-cpu-command-interface)
+reuse the same installed broker and CPU health/isolation checks. Dynamic sandbox
+commands require explicit owner opt-in; this does not enable tools in ordinary
+Scout workers or change the three-file comparison scope below.
+
 For an already reviewed `agent-sandbox` installation, an owner can inject its
 existing `call(action, arguments)` client into the delivery library:
 

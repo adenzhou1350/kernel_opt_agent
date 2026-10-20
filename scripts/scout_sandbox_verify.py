@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 
 from kimi_scout_verify import CLAIM_SCOPE, HARNESS, parse_test_output, read_input
+from scout_agent_sandbox_environment import cpu_health_matches, cpu_isolation_matches
 
 
 class SandboxCPU:
@@ -29,16 +30,7 @@ class SandboxCPU:
         if profile != "stdlib":
             raise ValueError("the installed CPU sandbox route supports stdlib only")
         observed = self.call("health")
-        limits = observed.get("limits", {})
-        available = (
-            observed.get("ready") is True
-            and observed.get("backend") == "docker-cpu"
-            and observed.get("image") == self.image
-            and observed.get("network") == "none"
-            and limits.get("memory_mib") == 512
-            and limits.get("cpus") == 1
-            and limits.get("pids") == 64
-        )
+        available = cpu_health_matches(observed, self.image)
         return {
             "available": available,
             "profile": profile,
@@ -128,20 +120,7 @@ class SandboxCPU:
                 )
                 output = raw.get("stdout", "") + raw.get("stderr", "")
                 count, summary = parse_test_output(output)
-                isolation = raw.get("isolation", {})
-                isolated = (
-                    isolation.get("NetworkMode") == "none"
-                    and isolation.get("ReadonlyRootfs") is True
-                    and isolation.get("Privileged") is False
-                    and isolation.get("Memory") == 512 * 1024 * 1024
-                    and isolation.get("MemorySwap") == 512 * 1024 * 1024
-                    and isolation.get("NanoCpus") == 1_000_000_000
-                    and isolation.get("PidsLimit") == 64
-                    and isolation.get("CapDrop") == ["ALL"]
-                    and "no-new-privileges:true" in isolation.get("SecurityOpt", [])
-                    and not isolation.get("Binds")
-                    and not isolation.get("Devices")
-                )
+                isolated = cpu_isolation_matches(raw)
                 inputs_match = raw.get("workspace_sha256", {}) == {
                     "subject.py": subject_hash,
                     "test_subject.py": hashes["test"],
