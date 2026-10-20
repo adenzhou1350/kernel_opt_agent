@@ -36,6 +36,13 @@ controller memory. A memory estimate for SDK children is not a measurement of
 HTTP threads, but a smaller estimate also needs evidence and reserve headroom.
 Preserve existing shared-host memory/disk guards and drain owned work before
 switching a running controller; do not run two controllers against one inbox.
+For an owned idle code reload, distinguish the actual `--research` input from
+`<run>/research.json`, which the producer writes as **status**. Guard the real
+input/code identities and retain the job/seen ledger, but expect status to change
+to `STOPPED` during a clean drain; treating that status file as immutable can
+strand a safely stopped controller before installation. If a guard fails, inspect
+the same PID/start identity, deployment record and current source hashes before
+resuming. Never replay a launch with an uncertain outcome or clear queued work.
 By default all backends retain the existing `provider-circuit.json`. For an
 intentional switch to a separately checked provider, an explicit
 `--provider-circuit-key alternative-v1` uses `provider-circuit-alternative-v1.json`
