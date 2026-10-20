@@ -1,9 +1,9 @@
 {
   "id": "constructor-global-state-repeatability",
   "title": "Separate repeatable construction from global state and instance isolation",
-  "applies_when": "A constructor trims or renames shared nodes, changes a global metadata name, or seems safe to test with an in-memory backend while reading process-global state files.",
-  "lesson": "Inspect the complete constructor and its global readers before choosing a repair. Compare the first and second calls under the same options, with an ordinary-configuration control, and assert behavior through the real lookup API rather than only slice length. If independent instances are supported, also check that creating the second instance does not change the first. Copying a slice header or even its pointed-to nodes in the constructor cannot isolate lookups that still read a package-global table. Resolve the supported lifetime contract before a broader API rewrite. Confine constructor state loading, file renames and caches to private temporary paths before native probes; an in-memory storage backend does not make the whole constructor side-effect-free.",
-  "avoid_when": "A documented one-per-process initialization contract can make independent instances a feature request, not a supported-use regression. A repeated-call failure does not prove that the normal one-instance mount fails, that data is lost, or that a shallow-copy fix is sufficient. Restoration around a serial characterization is test isolation, not a production fix or concurrent safety proof. The linked sources establish mechanisms only; they do not publish native results or establish better Scout discovery, PR conversion or cross-framework utility.",
+  "applies_when": "A constructor or alias registration changes shared nodes, global names or configuration-class metadata; independent objects may still consult those globals during lookup or serialization.",
+  "lesson": "Inspect construction and global readers before choosing a repair. Compare repeated and different-option calls with an ordinary control through the real lookup API. Check that creating a second instance does not change the first. Copying constructor data cannot isolate consumers that still read a global table. Serialization may also read a mutable class attribute even when an instance field stays unchanged: compare an earlier object's to_dict and saved JSON after registering another alias. Resolve lifetime, class-identity and pickling contracts before introducing dynamic subclasses or removing registration. Confine state loading, file renames and caches to private temporary paths; an in-memory backend does not make the whole constructor side-effect-free.",
+  "avoid_when": "A one-per-process contract can make independent instances a feature request. A repeated-call failure does not prove a normal one-instance mount fails or a shallow copy is sufficient. Restoring globals after serial tests is isolation, not a concurrent production fix. The native Transformers witness exports one vLLM helper; it is not full vLLM get_config, serving, accuracy or CI validation. The JuiceFS sources alone do not establish a supported multi-instance contract. Neither case proves better Scout discovery, PR conversion or cross-framework utility.",
   "evidence": [
     {
       "url": "https://github.com/juicedata/juicefs/blob/6aa233265d36141ecfbc088e91b0018d45f23a6a/pkg/vfs/vfs.go#L1266-L1290",
@@ -16,6 +16,14 @@
     {
       "url": "https://github.com/juicedata/juicefs/blob/6aa233265d36141ecfbc088e91b0018d45f23a6a/pkg/meta/base.go#L1324",
       "note": "Metadata lookup also consumes TrashName. Trace these consumers before treating the VFS node array as the whole ownership boundary."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/3897f95cf17619137536d2a7d325d9c2f39dc38f/vllm/transformers_utils/config.py#L132-L201",
+      "note": "kimi_k2 and deepseek_v32 map to the same DeepseekV3Config class. _register_config_class changes its model_type before AutoConfig registration. Source mechanism, not full-project validation."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/kernel_opt_agent/blob/54a55fa9d66988450c957105e0dced92d2333a70/examples/config-alias-serialization/README.md",
+      "note": "Native Transformers 5.16.1 component witness: both cross-alias orders change prior to_dict/saved JSON while the instance field stays unchanged; same-alias control is stable. Standalone copied helper, not a vLLM repair or prospective sample."
     }
   ],
   "status": "hypothesis"
