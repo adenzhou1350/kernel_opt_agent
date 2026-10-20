@@ -81,3 +81,8 @@ The next study should test contract/reachability judgments and diverse native
 costs or availability, retaining the fixed-native competitor. Merely predicting
 deterministic outputs cannot establish improved OSS discovery. The native probes
 above reproduce the facts, not the entire private model-call experiment.
+
+A later [CPU selector verdict calibration](cpu-cache-verdicts.md) examines the
+harder claim/reachability boundary. It retains all eight known-case responses,
+including an under-supported original expected label and unfaithful rationale
+fragments; it is not a positive selection-policy or prospective-study result.
