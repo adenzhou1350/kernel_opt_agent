@@ -24,6 +24,8 @@ def main():
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--client", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--batched-actions", action="store_true",
+                        help="Script native multi-tool responses; no provider request or parser change")
     args = parser.parse_args()
     source = args.source.resolve() / "src/minisweagent"
     expected = json.loads((HERE / "source_sha256.json").read_text())
@@ -39,12 +41,13 @@ def main():
     sys.dont_write_bytecode = True
     sys.path.insert(0, str(HERE.parents[1] / "scripts"))
     sys.path.insert(0, str(source.parent))
-    from scout_agent_sandbox_environment import CPUSandboxEnvironment, require_text_submission
+    from scout_agent_sandbox_environment import CPUSandboxEnvironment, SandboxFailure, require_text_submission
     from minisweagent.agents.default import DefaultAgent
     from minisweagent.environments.local import LocalEnvironment
     from minisweagent.models.test_models import DeterministicModel, make_output
+    from minisweagent.models.test_models import DeterministicToolcallModel, make_toolcall_output
 
-    for cls in (DefaultAgent, LocalEnvironment, DeterministicModel):
+    for cls in (DefaultAgent, LocalEnvironment, DeterministicModel, DeterministicToolcallModel):
         assert Path(inspect.getfile(cls)).resolve().is_relative_to(source)
     spec = importlib.util.spec_from_file_location("reviewed_sandbox_client", args.client)
     client = importlib.util.module_from_spec(spec)
@@ -71,12 +74,38 @@ def main():
            "commands": commands, "adapter_sha256": sha256(HERE.parents[1] / "scripts/scout_agent_sandbox_environment.py"),
            "input_fixture_sha256": {name: sha256(HERE / name) for name in ("fixture_subject.py", "fixture_checks.py")},
            "allow_dynamic_commands": True, "max_actions": 7,
-           "require_nonempty_final_text": True})
+           "require_nonempty_final_text": True, "batched_actions": args.batched_actions})
 
-    class ObservedModel(DeterministicModel):
+    class ObservedModel(DeterministicToolcallModel if args.batched_actions else DeterministicModel):
         def query(self, messages, **kwargs):
             self.observed.append(copy.deepcopy(messages))
             return super().query(messages, **kwargs)
+
+    class PreflightAgent(DefaultAgent):
+        def execute_actions(self, message):
+            self.env.check_actions(message.get("extra", {}).get("actions", []))
+            return super().execute_actions(message)
+
+    def scripted_output(group, ordinal):
+        if not args.batched_actions:
+            return make_output("Scripted mechanics", [{"command": c} for c in group], cost=0.0)
+        actions = [{"command": c, "tool_call_id": f"script-{ordinal}-{i}"} for i, c in enumerate(group)]
+        calls = [{"id": a["tool_call_id"], "type": "function",
+                  "function": {"name": "bash", "arguments": json.dumps({"command": a["command"]})}}
+                 for a in actions]
+        output = make_toolcall_output("Scripted native batch", calls, actions)
+        output["extra"]["cost"] = 0.0
+        return output
+
+    def make_agent(groups, filename):
+        model = ObservedModel(outputs=[scripted_output(group, i) for i, group in enumerate(groups)],
+                              cost_per_call=0.0)
+        model.observed = []
+        cls = PreflightAgent if args.batched_actions else DefaultAgent
+        agent = cls(model, env, system_template="Scripted known fixture, not discovery.",
+            instance_template="{{task}}", step_limit=len(groups), cost_limit=0, wall_time_limit_seconds=120,
+            output_path=args.output / filename)
+        return agent, model
 
     try:
         env = CPUSandboxEnvironment(client.call, session=session, health=health,
@@ -86,27 +115,56 @@ def main():
         for name in ("fixture_subject.py", "fixture_checks.py"):
             client.call("write", {"session_id": session_id, "path": name,
                         "content_base64": base64.b64encode((HERE / name).read_bytes()).decode()})
-        model = ObservedModel(outputs=[make_output("Scripted mechanics", [{"command": c}], cost=0.0)
-                                       for c in commands], cost_per_call=0.0)
-        model.observed = []
-        agent = DefaultAgent(model, env, system_template="Scripted known fixture, not discovery.",
-            instance_template="{{task}}", step_limit=7, cost_limit=0, wall_time_limit_seconds=120,
-            output_path=args.output / "trajectory.json")
+        rejected_queries = 0
+        if args.batched_actions:
+            # Whole-response validation must prevent even a valid prefix from running.
+            prefix = "python3 -B -c " + shlex.quote("from pathlib import Path;Path('rejected-prefix.txt').write_text('bad')")
+            for group, error, name in (([prefix, ""], ValueError, "malformed-batch.json"),
+                                      ([prefix] * 8, SandboxFailure, "over-budget-batch.json")):
+                rejected, _ = make_agent([group], name)
+                try:
+                    rejected.run("Reject this entire scripted response before dispatch.")
+                except error:
+                    pass
+                else:
+                    raise AssertionError("Invalid batch was not rejected")
+                assert rejected.n_calls == 1 and env.attempts == 0 and env.results == []
+                rejected_queries += rejected.n_calls
+            assert "rejected-prefix.txt" not in client.call("files", {"session_id": session_id})["files"]
+        groups = ([commands[:2], commands[2:4], commands[4:5], commands[5:6], commands[6:]]
+                  if args.batched_actions else [[c] for c in commands])
+        agent, model = make_agent(groups, "trajectory.json")
         outcome = agent.run("Run the reviewed scripted command/error/edit sequence.")
-        assert outcome["exit_status"] == "Submitted" and agent.n_calls == 7
+        assert outcome["exit_status"] == "Submitted" and agent.n_calls == len(groups)
         assert outcome["submission"].strip() == "SCRIPTED_EDIT_VERIFIED"
         assert [r["exit_code"] for r in env.results] == [1, 0, 1, 0, 0, 0, 0]
         assert "SyntaxError" in env.results[0]["stderr"]
-        assert "SyntaxError" in model.observed[1][-1]["content"]
+        feedback_query = {}
+        number = 0
+        for i, group in enumerate(groups):
+            for _ in group:
+                feedback_query[number] = i + 1
+                number += 1
+        def feedback_after(index, text):
+            return any(text in m.get("content", "") for m in model.observed[feedback_query[index]])
+        assert feedback_after(0, "SyntaxError")
         assert "FAILED (failures=1)" in env.results[2]["stderr"]
-        assert "FAILED (failures=1)" in model.observed[3][-1]["content"]
+        assert feedback_after(2, "FAILED (failures=1)")
         assert "Ran 2 tests" in env.results[4]["stderr"] and "OK" in env.results[4]["stderr"]
-        assert "OK" in model.observed[5][-1]["content"]
-        assert "TASK_OUTPUT_INCOMPLETE" in model.observed[6][-1]["content"]
+        assert feedback_after(4, "OK")
+        assert feedback_after(5, "TASK_OUTPUT_INCOMPLETE")
+        if args.batched_actions:
+            # Native observation formatting retains separate tool results and IDs.
+            for i, group in enumerate(groups[:-1]):
+                results = [m for m in model.observed[i + 1] if m.get("role") == "tool"][-len(group):]
+                assert [m["tool_call_id"] for m in results] == [f"script-{i}-{j}" for j in range(len(group))]
         assert env.results[5]["stdout"] == "COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT\n"
         assert all(r["container_removed"] for r in env.results)
         assert {name: sha256(source / name) for name in expected} == expected
-        record("summary.json", {"state": "SCRIPTED_DYNAMIC_SANDBOX_COMPONENT_PASS", "scripted_queries": 7,
+        record("summary.json", {"state": "SCRIPTED_DYNAMIC_SANDBOX_COMPONENT_PASS",
+               "scripted_queries": agent.n_calls + rejected_queries,
+               "completed_sequence_queries": agent.n_calls, "rejected_response_queries": rejected_queries,
+               "batched_actions": args.batched_actions,
                "actual_model_api_calls": 0, "sandbox_calls": 7, "syntax_error_reaches_next_query": True,
                "empty_submission_is_task_feedback_not_success": True,
                "within_session_toy_edit_persists": True, "host_source_unchanged": True,

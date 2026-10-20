@@ -168,3 +168,56 @@ composed commands and regression tests and repaired the same known toy defect;
 an owner-reviewed, fresh two-arm comparison independently discriminated the
 versions. This does not turn either scripted example above into an autonomous
 model test, admit a prospective cohort or demonstrate better discovery.
+
+## Optional native multi-action responses
+
+Mini's pinned `DefaultAgent` already executes parsed actions sequentially. Do
+not reject a valid multi-tool response merely to enforce one action per model
+query, silently keep only its first call, or concatenate commands. Those policies
+change the task/action capacity and can waste an otherwise usable response.
+
+For an owned, single-threaded sandbox loop, `env.check_actions(actions)` can
+preflight a **whole** parsed response immediately before native execution. It
+checks the remaining command/wall budget, every command's shape/literal scope
+and distinct IDs when supplied. It executes nothing and reserves no resources.
+Each subsequent `execute` still checks its current budget and retains its own
+intent/result. Use one owning loop; this is not concurrent reservation or a
+transaction. A later timeout or transport uncertainty stops the batch with its
+executed prefix retained, not rolled back or replayed. A finish callback may
+stop before the remaining calls: never count unexecuted suffixes as completed.
+
+One optional integration, without rewriting the native parser/dispatch loop:
+
+```python
+class PreflightAgent(DefaultAgent):
+    def execute_actions(self, message):
+        self.env.check_actions(message.get("extra", {}).get("actions", []))
+        return super().execute_actions(message)
+```
+
+Keep model-query/token/time accounting **outside** this check: a rejected
+response has already consumed its real provider call. Recovery, if a task
+permits it, must fit the same predeclared budgets for every comparison arm;
+the helper provides neither a retry nor extra allowance. Prompts should describe
+the same multi-action capacity rather than still require exactly one call.
+
+The existing no-model canary has an explicit variant:
+
+```sh
+python -B examples/native-agent-loop/check_dynamic.py --batched-actions \
+  --source /path/to/reviewed/mini-swe-agent \
+  --client /path/to/configured/agent-sandbox/client.py \
+  --output /path/to/NEW/private-batch-check
+```
+
+This uses Mini's deterministic **tool-call test model** and native observation
+formatter, not a provider connection or a test of provider parsing. It rejects
+an invalid-later-command response and an eight-command response with only seven
+commands available, proving neither valid prefix runs. It then completes the
+same seven-command sequence in five scripted queries, preserving distinct tool
+results/IDs, native error feedback, persistence and final-text handling. Including
+the two rejected responses, there are seven scripted queries and zero actual
+model requests. All seven command containers were removed and the session
+released in the development check; the default single-action example also passed
+in a fresh session. This is not measured latency/cost improvement, a rescued
+earlier MiniMax audit, prospective qualification or PR-conversion evidence.

@@ -958,3 +958,17 @@ Do not silently discard extra calls, grant one arm free repair attempts, or comp
 this zero-command termination with GLM's eight-command audit as research ability.
 No selector benefit, model ranking, improved PR conversion or paper readiness is
 established by this observation.
+
+A subsequent **zero-model scripted component check** retained that failed arm
+unchanged. It confirmed the pinned native loop already supports sequential
+multi-action responses; the exact-one rejection was our private controller
+policy, not a Mini limitation. The optional sandbox `check_actions` preflight and
+[batched canary](../../examples/native-agent-loop/README.md#optional-native-multi-action-responses)
+now exercise whole-response shape/budget rejection before any prefix runs,
+separate native tool-result IDs, seven individually budgeted commands and five
+scripted execution queries. Two negative-control responses are also counted,
+so the complete canary has seven scripted queries and zero provider requests.
+All seven command containers and the owned session were cleaned up; a fresh
+default single-action canary also passed. This qualifies execution mechanics
+only, not live-provider compatibility, recovery of the historical attempt,
+fewer actual paid calls, selector efficacy or equal scientific comparison.

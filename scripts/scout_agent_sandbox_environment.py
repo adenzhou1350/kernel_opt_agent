@@ -103,9 +103,7 @@ class CPUSandboxEnvironment:
         self.attempts, self.results = 0, []
         self.uncertain, self.failed = False, False
 
-    def execute(self, action, cwd="", *, timeout=None):
-        if self.uncertain or self.failed:
-            raise SandboxFailure("inspect retained history/evidence before any new execution")
+    def _check_action(self, action, cwd=""):
         if (not isinstance(action, dict) or set(action) - {"command", "tool_call_id"}
                 or not isinstance(command := action.get("command"), str)
                 or not command or "\0" in command or len(command.encode()) > 8192
@@ -115,6 +113,35 @@ class CPUSandboxEnvironment:
             raise ValueError("invalid sandbox agent action")
         if not self.allow_dynamic_commands and command not in self.allowed:
             raise ValueError("command is outside the reviewed literal set")
+        return command
+
+    def check_actions(self, actions):
+        """Optional whole-response preflight before native sequential execution.
+
+        This neither executes nor reserves actions. The single owning loop must
+        call it immediately before dispatch; each execute still checks its real
+        budget, records its own intent/result and stops on uncertainty. Reject
+        the whole response rather than silently truncate or merge commands.
+        A rejected response still costs its caller's real model query/tokens.
+        """
+        if self.uncertain or self.failed:
+            raise SandboxFailure("inspect retained history/evidence before any new execution")
+        if not isinstance(actions, list) or not actions or len(actions) > 64:
+            raise ValueError("supply a nonempty native action list of at most 64 entries")
+        if len(actions) > self.max_actions - self.attempts or self.deadline - time.monotonic() < 1:
+            raise SandboxFailure("agent action or wall budget exhausted before batch dispatch")
+        call_ids = set()
+        for action in actions:
+            self._check_action(action)
+            if (call_id := action.get("tool_call_id")) is not None:
+                if call_id in call_ids:
+                    raise ValueError("duplicate tool_call_id in native action batch")
+                call_ids.add(call_id)
+
+    def execute(self, action, cwd="", *, timeout=None):
+        if self.uncertain or self.failed:
+            raise SandboxFailure("inspect retained history/evidence before any new execution")
+        command = self._check_action(action, cwd)
         limit = self.command_timeout if timeout is None else timeout
         if type(limit) is not int or not 1 <= limit <= 60:
             raise ValueError("command timeout must be 1..60 seconds")

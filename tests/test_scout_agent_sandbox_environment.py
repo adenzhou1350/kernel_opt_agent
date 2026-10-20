@@ -69,6 +69,103 @@ class EnvironmentTests(unittest.TestCase):
             env.execute({"command": "echo hello"})
         self.assertEqual(env.attempts, 1)
 
+    def test_native_batch_preflight_does_not_dispatch_or_consume_actions(self):
+        env = self.environment(max_actions=2)
+        actions = [{"command": "echo hello", "tool_call_id": f"call-{i}"} for i in range(2)]
+        original = copy.deepcopy(actions)
+        self.assertIsNone(env.check_actions(actions))
+        self.assertEqual((env.attempts, self.requests, self.records), (0, [], []))
+        outputs = [env.execute(action) for action in actions]
+        self.assertEqual([output["returncode"] for output in outputs], [0, 0])
+        self.assertEqual(env.attempts, 2)
+        self.assertEqual(actions, original)
+        self.assertEqual([value["action"]["tool_call_id"] for name, value in self.records
+                          if name.endswith("intent.json")], ["call-0", "call-1"])
+        with self.assertRaises(SandboxFailure):
+            env.check_actions(actions[:1])
+        self.assertEqual(len(self.requests), 2)
+
+    def test_whole_batch_rejects_invalid_later_action_before_first_dispatch(self):
+        for second in ({"command": "outside"}, {"command": "echo hello", "tool_call_id": ""},
+                       {"command": "echo hello", "extra": True}, {"command": "a\0b"}, None):
+            with self.subTest(second=second):
+                env = self.environment()
+                with self.assertRaises(ValueError):
+                    env.check_actions([{"command": "echo hello"}, second])
+                self.assertEqual((env.attempts, self.requests, self.records), (0, [], []))
+                self.assertFalse(env.failed or env.uncertain)
+
+    def test_whole_batch_budget_cannot_run_a_prefix_or_grant_extra_actions(self):
+        env = self.environment(max_actions=2)
+        env.execute({"command": "echo hello"})
+        with self.assertRaises(SandboxFailure):
+            env.check_actions([{"command": "echo hello"}] * 2)
+        self.assertEqual((env.attempts, len(self.requests)), (1, 1))
+        env.check_actions([{"command": "echo hello"}])
+        env.deadline = 0
+        with self.assertRaises(SandboxFailure):
+            env.execute({"command": "echo hello"})
+        self.assertEqual((env.attempts, len(self.requests)), (1, 1))
+
+    def test_batch_is_not_permission_to_reuse_a_failed_or_uncertain_environment(self):
+        for flag in ("failed", "uncertain"):
+            with self.subTest(flag=flag):
+                env = self.environment()
+                setattr(env, flag, True)
+                with self.assertRaises(SandboxFailure):
+                    env.check_actions([{"command": "echo hello"}])
+                self.assertEqual(self.requests, [])
+
+    def test_native_batch_shape_and_duplicate_ids_are_rejected(self):
+        action = {"command": "echo hello", "tool_call_id": "same"}
+        for actions in (None, [], (), "action", [action] * 65, [action, action]):
+            with self.subTest(kind=type(actions).__name__):
+                env = self.environment()
+                with self.assertRaises(ValueError):
+                    env.check_actions(actions)
+                self.assertEqual(self.requests, [])
+        # Scripted/native text actions need not manufacture tool-call IDs.
+        env.check_actions([{"command": "echo hello"}] * 2)
+
+    def test_uncertain_batch_prefix_is_preserved_and_suffix_never_runs(self):
+        env = self.environment()
+        actions = [{"command": "echo hello", "tool_call_id": f"call-{i}"} for i in range(3)]
+        env.check_actions(actions)
+        calls = []
+
+        def lose_second(action, arguments):
+            calls.append(arguments)
+            if len(calls) == 2:
+                raise TimeoutError("second invocation outcome unknown")
+            return copy.deepcopy(RESULT)
+
+        env.call = lose_second
+        with self.assertRaises(TimeoutError):
+            [env.execute(action) for action in actions]
+        self.assertEqual((env.attempts, len(env.results), len(calls)), (2, 1, 2))
+        self.assertTrue(env.uncertain)
+        self.assertEqual([name for name, _ in self.records],
+                         ["action-1-intent.json", "action-1-result.json", "action-2-intent.json"])
+        with self.assertRaises(SandboxFailure):
+            env.execute(actions[2])
+        self.assertEqual(len(calls), 2)
+
+    def test_batch_submission_retains_prefix_without_charging_unexecuted_suffix(self):
+        class Submitted(Exception):
+            pass
+
+        def finish(env, output):
+            raise Submitted()
+
+        env = self.environment(finish=finish)
+        actions = [{"command": "echo hello", "tool_call_id": f"call-{i}"} for i in range(2)]
+        env.check_actions(actions)
+        with self.assertRaises(Submitted):
+            [env.execute(action) for action in actions]
+        self.assertEqual((env.attempts, len(env.results), len(self.requests)), (1, 1, 1))
+        self.assertEqual([name for name, _ in self.records], ["action-1-intent.json", "action-1-result.json"])
+        self.assertFalse(env.uncertain or env.failed)
+
     def test_limits_and_timeout_failures_do_not_become_target_assertions(self):
         env = self.environment(max_actions=1)
         env.execute({"command": "echo hello"})
