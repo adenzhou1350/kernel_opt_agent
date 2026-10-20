@@ -28,6 +28,10 @@
     {
       "url": "https://github.com/huggingface/transformers/blob/c4c4605f961877852b89b97478536bb3a26b6fd1/src/transformers/models/auto/auto_factory.py",
       "note": "Transformers 5.19's AutoModel checks type(config) in its lazy mapping, whose fallback uses registered config class names rather than general subclass inheritance. An offline fixed-wheel CPU probe found native DeepseekV3Config in tokenizer and causal-LM mappings, and a differently named unregistered child in neither. This rejects assuming subclassing is drop-in; it does not test a registered wrapper repair, instantiate a model/tokenizer or prove a serving regression."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/issues/62645",
+      "note": "Public report of the independently reproduced mixed-alias mutation, stable same-alias control and fixed official CPU environment. It distinguishes historical PR #39554's override-selection contract from prior-object serialization. A submitted report is neither maintainer confirmation nor an accepted repair, latest-main execution or model-output qualification."
     }
   ],
   "status": "hypothesis"

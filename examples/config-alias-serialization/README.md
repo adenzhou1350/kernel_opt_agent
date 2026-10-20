@@ -146,3 +146,11 @@ and a repair constraint, not evidence that this serialization witness is fixed,
 a maintainer confirmation of our report, or permission to bypass validation.
 Do not classify the candidate as a duplicate merely from the assistant's link,
 or call it accepted merely from the assistant's description.
+
+The independently reproduced serialization behavior is now reported in
+[vLLM issue #62645](https://github.com/vllm-project/vllm/issues/62645), with the
+tested package versions, both mixed-alias orders, the same-alias control and
+reviewed official environment-collector output. The collector's bytes match the
+separately inspected main revision; that does not turn the fixed-wheel
+reproduction into a latest-main execution. Publication is not maintainer
+confirmation, an accepted repair or evidence of model-output impact.
