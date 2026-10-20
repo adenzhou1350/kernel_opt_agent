@@ -757,3 +757,12 @@ earlier failures behind the adapter correction. No further same-pin retry was
 started. The direct-agent research baseline still lacks a completed real-project
 native investigation and matched fresh-source/miss auditing; this is not evidence
 that the evidence selector outperforms it or that the project is paper-ready.
+
+One separate owner-issued action then exercised the supplied helper on the
+unchanged `TestStatistics` class: all four original tests passed, native imports
+resolved to the reconstructed original source, input bytes stayed unchanged,
+and report persistence/container removal/session release succeeded. Strict
+case accounting accepted that four-case report. This verifies an available
+native action, not a model-issued test, repair of the earlier full-suite XML,
+new defect or completed autonomous investigation. Its execution/review cost is
+additional to the model attempts above.
