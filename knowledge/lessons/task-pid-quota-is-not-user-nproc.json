@@ -2,8 +2,8 @@
   "id": "task-pid-quota-is-not-user-nproc",
   "title": "A task PID budget is not a shared user's RLIMIT_NPROC",
   "applies_when": "A Linux native-test or agent subprocess must spawn child commands under a small task budget, especially when it shares a real user ID with other workers and fork or clone fails with EAGAIN before target assertions run.",
-  "lesson": "Check the accounting domain before transferring a resource limit. RLIMIT_NPROC counts existing processes and threads for the real user ID, not just the current test tree; a newly imposed limit can already be below that shared user's usage. Limits are inherited across fork and preserved across exec. A per-task budget needs an actual task-specific mechanism, such as a cgroup pids.max limit, with its hierarchy and current usage checked. Preserve process-creation failures as environment evidence rather than a target-code failure or no-bug result. Do not silently remove the limit and call execution equally isolated; qualify a fresh bounded route and retain the failed attempt.",
-  "avoid_when": "EAGAIN alone does not identify RLIMIT_NPROC; cgroup, system and other admission limits can also prevent task creation. RLIMIT_NPROC is not enforced for real UID 0 or the documented privileged capabilities. A PID cgroup counts kernel tasks/threads, includes descendants and obeys ancestor limits; it is not memory, CPU, filesystem, network, GPU or kernel-exploit isolation. A successful fixed shell primitive is not qualification for arbitrary generated commands or a repository's native test suite.",
+  "lesson": "Check the accounting domain before transferring a resource limit. RLIMIT_NPROC counts existing processes and threads for the real user ID, not just the current test tree; a newly imposed limit can already be below that shared user's usage. Limits are inherited across fork and preserved across exec. A per-task budget needs an actual task-specific mechanism, such as a cgroup pids.max limit, with its hierarchy and current usage checked. The cgroup counts threads too: a healthy one-thread control does not qualify an original 100-thread cohort under a 64-task limit. Also distinguish address space from resident memory. A native 3GiB RLIMIT_AS route can reject threaded allocations despite modest physical use; task-local glibc arena configuration can change that envelope. Preserve failed routes, inspect real controls and qualify a fresh bounded route without changing target assertions or calling it equally isolated. Do not mistake thread-start or allocation failures for a target-code defect or a correct no-bug result.",
+  "avoid_when": "EAGAIN or can't-start-thread alone does not identify RLIMIT_NPROC; cgroup, memory and system limits can also prevent task creation, and a target leak remains possible. RLIMIT_NPROC is not enforced for real UID 0 or the documented privileged capabilities. A PID cgroup counts kernel tasks/threads, includes descendants and obeys ancestor limits; it is not memory, CPU, filesystem, network, GPU or kernel-exploit isolation. MALLOC_ARENA_MAX is a glibc-specific allocator setting, not a portable fix, extra RSS allowance or a production/performance default. The observed more-itertools route retained the full failed sandbox suite and failed native-AS attempt; only a separate allocator-configured native host passed the full suite. A successful fixed shell primitive or selected test is not qualification for arbitrary generated commands, every concurrency cohort or a repository's full CI.",
   "evidence": [
     {
       "url": "https://man7.org/linux/man-pages/man2/getrlimit.2.html",
@@ -12,6 +12,14 @@
     {
       "url": "https://docs.kernel.org/admin-guide/cgroup-v2.html#pid",
       "note": "Kernel documentation specifies the PID controller, pids.max/current, descendant accounting and hierarchical fork/clone enforcement. A task-specific cgroup must actually be established and inspected; merely naming a budget provides no isolation."
+    },
+    {
+      "url": "https://github.com/more-itertools/more-itertools/blob/4aeb4338ae1407d8da9723e86da99efeb446f719/tests/test_more.py#L7080-L7114",
+      "note": "Original TestConcurrentTee creates 100 consumer threads. A complete 929-parent-case observation under the 512MiB/64-task sandbox retained three thread-start errors and one subsequent callback doctest failure. One-thread control passed. On a separate 2CPU/3GiB-AS native host, the full original selection still had three thread errors; with only task-local MALLOC_ARENA_MAX=2 it passed929, no skips/errors, observed child peak RSS147940KiB. These are environment-capacity observations, not a project defect, same-profile comparison, target CI or model discovery."
+    },
+    {
+      "url": "https://sourceware.org/glibc/manual/latest/html_node/Memory-Allocation-Tunables.html",
+      "note": "glibc documents arena_max/MALLOC_ARENA_MAX and the core-dependent default. This explains a configurable allocator envelope, not a universal diagnosis or a measured performance/memory-saving claim. Read actual address-space, resident-memory and task limits before changing task-local configuration."
     }
   ],
   "status": "validated"

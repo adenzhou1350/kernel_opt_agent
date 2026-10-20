@@ -803,6 +803,50 @@ nor corrected-looking counters justify collapsing events into executed cases.
 Preserve the original XML and command exits. Do not remove doctests, optional
 modules or long parameter IDs solely to force structured acceptance.
 
+## Threaded suites: task count is not resident memory
+
+At more-itertools `4aeb4338ae1407d8da9723e86da99efeb446f719`, the complete original
+stdlib unittest selection includes native `load_tests` doctests and a
+[100-thread test](https://github.com/more-itertools/more-itertools/blob/4aeb4338ae1407d8da9723e86da99efeb446f719/tests/test_more.py#L7080-L7114).
+The original full tree and assertions were not changed. One CPU sandbox run
+retained all 929 parent test cases: three thread-start errors and one subsequent
+callback doctest failure. Exit1, original source hashes, successful report
+persistence, container removal and release were retained. A separate healthy
+one-thread control passed and read the actual `pids.max=64`; it did not qualify
+the larger concurrency requirement. A preceding owner quoting SyntaxError is
+an owner-command failure, not another failed target control.
+
+Do not infer seccomp denial or a target leak solely from "can't start new
+thread". The kernel PID controller counts [threads as kernel tasks](https://docs.kernel.org/admin-guide/cgroup-v2.html#pid).
+The scope of the complete failed invocation stays failed, even if other
+sequential components ran. Do not decrease a target test's thread count, add a
+skip or rename the full suite as passed to fit a resource profile.
+
+A separately bounded native-host route (Python3.12.3, two CPUs, 3GiB
+`RLIMIT_AS`, 90-second wall ceiling, private source/home/temp/cache, no GPU,
+network or installs) still had three thread errors and MemoryError tracebacks.
+This address-space limit is not a 3GiB RSS quota. A final fresh invocation kept
+the same complete source/selection/limits and set **task-local**
+`MALLOC_ARENA_MAX=2` before launching the interpreter. All 929 parent cases
+passed, no errors/skips, with reaped-child peak RSS147940KiB. All original source
+hashes were rechecked. The passing target interval was8.16s; that excludes earlier
+failed setup, source transport, review and the direct-agent work below.
+
+glibc [documents its arena setting](https://sourceware.org/glibc/manual/latest/html_node/Memory-Allocation-Tunables.html).
+This is a scoped capacity repair, not proof that every thread failure is an
+arena problem, that memory usage was reduced by a measured amount, or that
+changing allocator settings improves production performance. The native route
+is **not** equally isolated to the512MiB/64-task sandbox. Neither route qualifies
+the project's other Python versions, coverage, lint, docs, packaging or CI.
+Both failed invocations remain failures. No shared broker/resource limits were
+changed; no indefinite same-case repair loop was started.
+
+The existing `ObservedRunner` preserved real unittest/subtest events; the full
+JSON was5.17MB. A compressed111KB report fit the broker's1MiB single-file budget
+and was retrieved and decompressed by the owner. Do not clip events, rewrite
+counts or give an agent every raw event merely to move a report. Parent counts
+are not counts of every embedded doctest example or independent discoveries.
+
 ## Keep the outcome useful
 
 Use identical test bytes and matched inputs for both arms, passing ordinary

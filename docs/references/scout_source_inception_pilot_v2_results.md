@@ -766,3 +766,53 @@ case accounting accepted that four-case report. This verifies an available
 native action, not a model-issued test, repair of the earlier full-suite XML,
 new defect or completed autonomous investigation. Its execution/review cost is
 additional to the model attempts above.
+
+### Real-project native actions, incomplete investigation, 2026-10-20
+
+A new development task used the complete more-itertools
+`4aeb4338ae1407d8da9723e86da99efeb446f719` source with its original docstrings,
+tests and contribution policy. It was owner-exposed for the
+[native capacity check](scout_native_cpu_worked_routes.md#threaded-suites-task-count-is-not-resident-memory),
+not prospectively enrolled. The repository requires production-code examples
+for automated bug reports; a contrived witness would not authorize publication.
+It was not added to production Scout merely to fill workers.
+
+The unchanged pinned Mini `DefaultAgent`, native `LitellmModel`/tool parser and
+CPU sandbox Environment received the entire declared task. The source was
+readable; native commands reconstructed and verified the original tree. The task
+covered public `peekable`, `seekable` and `SequenceView` semantics, with no
+seeded defect, hidden fix, repair or publication authority. Both the full-suite
+capacity failures and the supported sequential test route were disclosed.
+
+One attempt had six queries/actions,360 decision seconds,80s/request,
+30s/command,8192 output tokens/request,98304 prepared-message bytes and a90000
+reported-token post-response stop. Configured low effort was forwarded; there
+were no automatic retries/fallbacks. These changed bounds and a new project
+are **not** a controlled comparison to the Tenacity attempts above.
+
+The model issued six commands: three source reads, a native deque/Sequence
+membership observation with a source grep, an incorrectly located test-helper
+call, then a corrected original-test call. The latter ran42 relevant tests,
+all passed/no skips. The owner independently retrieved and decompressed the
+real observed-runner report; no model paraphrase or shell exit alone was used
+as a test verdict. The incorrect command's `tail` pipeline returned0 despite
+Python failing to find the helper. All six shell exits being0 is therefore
+**not six successful verifications**.
+
+At the six-query limit the native agent returned `LimitsExceeded` with an empty
+submission. The outer capture exited0 without group cleanup, but there was no
+accepted final investigation, generated defect witness or finding/PR. Do not
+relabel this as `NO_LEAD`, absence of bugs or successful task completion. The
+original inputs were independently rehashed during export; all remained
+unchanged, every action container was removed, and the session was released.
+No extra query or owner completion was attached after the declared limit.
+
+Six provider responses consumed28600 inclusive reported tokens; cache reads
+remain subsets. The recorded decision interval was20.47s, excluding earlier
+native setup/failures, source preparation/transfer, owner adjudication and
+release. Prices and complete owner/development costs remain unknown. This
+qualifies **model-issued real native actions**, but the direct-agent comparator
+still lacks a completed investigation, fresh matched enrollment and miss audit.
+Future comparisons must budget the final submission/review explicitly for all
+arms, not credit partial source reads or passed controls as discoveries. No new
+same-pin retry, extra v2 slot, selector advantage or paper-ready result is claimed.
