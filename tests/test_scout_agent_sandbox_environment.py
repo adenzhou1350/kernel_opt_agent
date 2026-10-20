@@ -3,6 +3,7 @@ import copy
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from scout_agent_sandbox_environment import CPUSandboxEnvironment, SandboxFailure, require_text_submission
@@ -84,6 +85,43 @@ class EnvironmentTests(unittest.TestCase):
         with self.assertRaises(SandboxFailure):
             env.check_actions(actions[:1])
         self.assertEqual(len(self.requests), 2)
+
+    def test_capacity_guard_stops_before_model_delegate_after_last_action(self):
+        env = self.environment(max_actions=1)
+        self.assertEqual(env.check_action_capacity(), 1)
+        self.assertEqual((env.attempts, self.requests, self.records), (0, [], []))
+        env.execute({"command": "echo hello"})
+        model_query = Mock()
+        with self.assertRaises(SandboxFailure):
+            env.check_action_capacity()
+            model_query()
+        model_query.assert_not_called()
+        self.assertEqual((env.attempts, len(self.requests)), (1, 1))
+
+    def test_capacity_guard_does_not_reserve_or_reject_target_nonzero_feedback(self):
+        failed_assertion = copy.deepcopy(RESULT)
+        failed_assertion.update(exit_code=1, stdout="", stderr="AssertionError: target")
+        env = self.environment(failed_assertion, max_actions=2)
+        self.assertEqual(env.check_action_capacity(), 2)
+        self.assertEqual(env.check_action_capacity(), 2)
+        env.execute({"command": "echo hello"})
+        self.assertEqual(env.check_action_capacity(), 1)
+        self.assertFalse(env.failed or env.uncertain)
+        self.assertEqual((env.attempts, len(self.requests)), (1, 1))
+
+    def test_capacity_guard_rejects_failed_uncertain_and_subsecond_states(self):
+        for flag in ("failed", "uncertain"):
+            with self.subTest(flag=flag):
+                env = self.environment()
+                setattr(env, flag, True)
+                with self.assertRaises(SandboxFailure):
+                    env.check_action_capacity()
+                self.assertEqual((env.attempts, self.requests, self.records), (0, [], []))
+        env = self.environment()
+        with patch("scout_agent_sandbox_environment.time.monotonic", return_value=env.deadline - 0.5):
+            with self.assertRaises(SandboxFailure):
+                env.check_action_capacity()
+        self.assertEqual((env.attempts, self.requests, self.records), (0, [], []))
 
     def test_whole_batch_rejects_invalid_later_action_before_first_dispatch(self):
         for second in ({"command": "outside"}, {"command": "echo hello", "tool_call_id": ""},

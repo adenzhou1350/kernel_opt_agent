@@ -49,3 +49,99 @@ are distinct. This limits interpretation of any later rule comparison; it is
 not evidence that learned selection outperforms a competent size-aware baseline.
 Per-case prompts/executors/provider bindings still need freezing before the
 five-arm calls. Slots1/2 have not yet been prepared or replaced.
+
+## Slot0 attempted comparison: incomplete and execution-confounded
+
+All five policy prompts, source/derived payload, provider configuration
+fingerprints, current executor bytes and shared budgets were bound before any
+compared call. Policies ran sequentially in the frozen order. The owner inspected
+only lifecycle/budget metadata during execution, then stripped arm labels before
+reading the terminal outputs. Styling/command clues can still reveal origin;
+this is not an independent human or perfectly blinded panel.
+
+The case stopped on the last policy's first MiniMax request: the native SDK
+reported an InternalServerError without a usable response/usage. No retry,
+alternate provider or replacement attempt was made. Record24 request attempts,
+23 with known returned usage, **at least138,521 reported tokens**, and one request
+with unknown usage, not a zero-token charge. Native execution totaled28 commands.
+The direct M3 arm crossed its60,000-token post-response stop at65,090; the
+overshoot is retained, not rounded down or followed by extra investigation.
+
+| Policy | Controller model attempts | Known inclusive tokens | Unknown-usage attempts | Native commands |
+| --- | ---: | ---: | ---: | ---: |
+| Rule + M3 | 1 | 6,497 | 0 | 4 |
+| GLM direct | 8 | 34,002 | 0 | 8 |
+| M3 direct | 7 | 65,090 | 0 | 8 |
+| GLM acquisition + M3 | 7 | 32,932 | 0 | 8 |
+| M3 acquisition + M3 | 1 | unknown, not zero | 1 | 0 |
+
+These are observed controller/SDK attempts, not a captured count of wire-level
+HTTP transmissions. Returned format-error envelopes remain charged. Token totals
+include cached input; cache counters must not be added again or treated as a
+known monetary discount. The direct M3 terminal response also had a native
+format error; the crossed token threshold is not a separate successful stop or
+a valid final answer.
+
+No policy produced a valid native final submission: two reached query limits,
+one exhausted usable action capacity, one used an invalid shell form for its
+submission, and the last had no settled provider response. Raw investigation and
+partial text remain saved. These are incomplete/invalid outputs, not five clean
+abstentions, proof of no bugs or a ranking of the configurations. A rule-policy
+attempt to perform extra source exploration also remains a policy violation.
+
+Owner review exposed a **controller-owned materialization error**: the final
+payload omitted `source.manifest.json`, although the unchanged bootstrap requires
+it and the earlier651-pass preparation included it. The target source was still
+importable and standalone probes could run; this was not a total lack of Python
+or a target-library regression. But the promised original-module test route was
+not actually available in the compared payload. Consequently this is not a
+usable efficacy comparison or proof that handoff/direct investigation is better.
+
+A separate zero-model matched diagnosis kept the frozen payload unchanged:
+the same native command failed with FileNotFoundError. In another fresh CPU
+session, adding **only** the original manifest restored all651 original cases.
+No tracked source/test/helper bytes were changed, no model calls reran, and the
+failed study capsule/predictions were not relabeled successful.
+
+The one retained generated backslash probe printed nine failures but exited0.
+Its expected prefix was `/HOME_LITERAL`, without setting HOME to that value.
+Independent execution of its unchanged bytes reproduced nine printed failures
+under the original environment. A separate explicit-HOME causal control produced
+zero such failures, and two independently written public-API controls passed.
+This is a **generated oracle/setup error**, not a reproduced upstream defect,
+an accepted no-finding conclusion or a repaired model submission. The earlier
+probe version also used a nonmatching configuration key. No community PR follows
+from these printed failure counts.
+
+The owner froze those dispositions before opening the arm key. Reconciliation
+verified all28 original command containers removed and all6 original owned
+sessions released, with protected original inputs unchanged. Separate owner
+source inspection and three native public-API controls covered last-valid config
+assignment, environment precedence, valid runtime directories and symlink
+rejection. They found no reproduced target defect within that bounded audit;
+they are not an exhaustive reference set. With no audited-positive reference,
+population or audited recall cannot be inferred, and absence is not proved.
+The six native owner diagnosis/miss commands are additional work, not extra
+independent study outcomes or free adjudication.
+
+A trace audit also found **three actual requests made after that phase's native
+action capacity was exhausted**, totaling28,848 known reported tokens. Under this
+task's required native-action submission contract, those responses could not
+execute another action. This is an identified guard opportunity in the retained
+trace, not a measured counterfactual cost reduction: the original calls were
+already consumed and no optimized model rerun was bought.
+
+The optional sandbox adapter now exposes a non-reserving pre-request capacity
+check, with23 passing component tests and fresh single/batch zero-model native
+canaries. It prevents reaching the model delegate after the known action budget
+is spent; it does not repair this case, prove priced savings, resolve provider
+errors, or apply to an agent allowed to finish without tools. Full-payload
+qualification and safe submission examples are also required before future
+investigation; this failed capsule is never relabeled fixed.
+
+Unknown provider usage remains unresolved; no further compared calls for this
+case are authorized by these diagnostics. Slots1/2 remain unprepared/unreplaced.
+Controller development, diagnosis and adjudication are additional costs; zero
+new findings does not make them zero or show that every configuration has
+exhausted the repository's useful opportunities. No community PR, selector
+superiority, fully priced comparison or paper readiness is established.

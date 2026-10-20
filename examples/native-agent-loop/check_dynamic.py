@@ -78,6 +78,8 @@ def main():
 
     class ObservedModel(DeterministicToolcallModel if args.batched_actions else DeterministicModel):
         def query(self, messages, **kwargs):
+            # This task can only finish through a native command, not free text.
+            env.check_action_capacity()
             self.observed.append(copy.deepcopy(messages))
             return super().query(messages, **kwargs)
 
@@ -161,12 +163,21 @@ def main():
         assert env.results[5]["stdout"] == "COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT\n"
         assert all(r["container_removed"] for r in env.results)
         assert {name: sha256(source / name) for name in expected} == expected
+        observed_before = copy.deepcopy(model.observed)
+        try:
+            model.query([])
+        except SandboxFailure:
+            pass
+        else:
+            raise AssertionError("Exhausted actions allowed another model delegate call")
+        assert model.observed == observed_before and env.attempts == 7
         record("summary.json", {"state": "SCRIPTED_DYNAMIC_SANDBOX_COMPONENT_PASS",
                "scripted_queries": agent.n_calls + rejected_queries,
                "completed_sequence_queries": agent.n_calls, "rejected_response_queries": rejected_queries,
                "batched_actions": args.batched_actions,
                "actual_model_api_calls": 0, "sandbox_calls": 7, "syntax_error_reaches_next_query": True,
                "empty_submission_is_task_feedback_not_success": True,
+               "exhausted_actions_stop_before_model_delegate": True,
                "within_session_toy_edit_persists": True, "host_source_unchanged": True,
                "exit_codes": [r["exit_code"] for r in env.results], "wall_seconds": time.monotonic()-started,
                "priced_total": None, "boundary": "Scripted known fixture. No model-generated command or repair, arbitrary hostile-code guarantee, discovery, matched baseline or efficacy claim."})

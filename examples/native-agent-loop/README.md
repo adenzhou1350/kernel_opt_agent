@@ -230,3 +230,46 @@ preserved the intentional nonzero-exit feedback and native submission under
 the same four-command allowance, with complete cleanup. Treat this as scoped
 execution evidence, not a successful MiniMax batching test or model/cost ranking.
 It does not enable tools in production Scout or change this no-model example.
+
+### Stop before buying a response that cannot execute
+
+For a task that **requires a native action even to submit**, the caller can check
+capacity before invoking its model delegate:
+
+```python
+env.check_action_capacity()
+message = native_model.query(messages, **kwargs)
+env.check_actions(message.get("extra", {}).get("actions", []))
+```
+
+The first check returns remaining action slots or raises on exhausted actions,
+less than one usable wall second, failed execution or unresolved uncertainty.
+It makes no model/broker request, records no new action and reserves nothing.
+The second check still validates the returned complete batch; actual execution
+continues to enforce its current limits. Keep query/token/provider accounting
+outside both checks. Do not use this guard to reject a legitimate tool-free
+final answer, or infer that it can resolve an earlier unknown provider outcome.
+
+The scripted dynamic example now checks capacity before its test-model delegate
+and explicitly proves that, after all seven actions, another query stops without
+reaching that delegate. Fresh single-action and batch checks passed with the
+same seven command results and cleanup. These are zero-provider component checks,
+not a measured reduction in paid calls or a repaired historical study arm.
+
+### Qualify the final delivered payload, not only its ancestor
+
+Before paid investigation, run the promised native command in a fresh session
+containing **exactly the final payload and derived files**. Bind that payload's
+hashes to the result. An earlier test in a larger setup, matching production
+bytes, and a manifest hash stored in controller metadata do not prove that the
+helper can find every file after delivery. A source-hash check can also pass
+while an undeclared helper dependency is missing.
+
+In the [native source-choice pilot](../../docs/references/scout_native_source_choice_pilot_v3_results.md),
+the earlier environment passed651 original cases, but the final agent payload
+omitted `source.manifest.json`, which its unchanged bootstrap reads. A subsequent
+zero-model matched diagnosis retained the failing payload and added only that
+file: the same command then passed651 cases. That is controller diagnosis, not
+a rescued trial, a new finding, or support for selector effectiveness. Preserve
+the original failed command and scoped results; do not silently grant the
+earlier environment's capabilities to a new capsule.

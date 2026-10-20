@@ -115,6 +115,21 @@ class CPUSandboxEnvironment:
             raise ValueError("command is outside the reviewed literal set")
         return command
 
+    def check_action_capacity(self):
+        """Return usable action slots without dispatch, reservation or charging.
+
+        A caller that requires a native action even to submit can use this
+        BEFORE a model request. Do not use it to forbid a legitimate tool-free
+        final answer. Provider/query/token budgets remain the caller's concern;
+        a later execute still checks actual time and records its own attempt.
+        """
+        if self.uncertain or self.failed:
+            raise SandboxFailure("inspect retained history/evidence before any new execution")
+        remaining = self.max_actions - self.attempts
+        if remaining <= 0 or self.deadline - time.monotonic() < 1:
+            raise SandboxFailure("agent action or wall budget exhausted before model request")
+        return remaining
+
     def check_actions(self, actions):
         """Optional whole-response preflight before native sequential execution.
 
