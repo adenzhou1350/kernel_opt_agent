@@ -75,3 +75,11 @@ model-command safety, full upstream tests, held-out discovery, improved recall,
 PR conversion or paper novelty. Do not admit a new prospective cohort on this
 component check alone; provider realization, matched action capacity, cost and
 blinded miss auditing remain independent requirements.
+
+A later [private real-provider compatibility check](../../docs/references/scout_source_inception_pilot_v2_results.md#real-provider-feedback-compatibility-known-fixture-check-2026-10-20)
+used the unchanged upstream text parser and three actual Scout HTTP responses.
+It verified that the native failure reached the next real request and that its
+answer distinguished the control from the boundary failure. That separate run
+does not turn this deterministic example into a provider integration test or
+demonstrate action-selection effectiveness; no private connection settings or
+raw provider traces are included here.

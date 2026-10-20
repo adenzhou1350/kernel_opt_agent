@@ -398,3 +398,34 @@ actual provider/tool realization, comparable action and budget capacity, target
 dependency availability, full cost accounting and arm-blinded miss auditing.
 This component capability removes one concrete feasibility uncertainty; it is
 not a research effectiveness result or justification to promote learned routing.
+
+### Real-provider feedback compatibility: known-fixture check, 2026-10-20
+
+A separate, one-shot private check subsequently replaced the scripted model
+with the existing Scout tool-free HTTP backend. The unchanged upstream
+`DefaultAgent`, text-action parser and observation formatter consumed three
+actual responses. The controller accepted only the three reviewed source-read,
+unittest and submission commands in that fixed order. The third real request
+contained the native return code 1 and both test outcomes; its response correctly
+named the passing control and failing exclusive-end witness before submitting.
+All three containers were removed, the session was released, and the 16 reviewed
+upstream module hashes remained unchanged. The no-model public example itself
+was not modified or relabeled as this run.
+
+The gateway reported 1,592 input and 292 output tokens (1,884 inclusive total)
+across three accepted responses. Cached input was reported as 0, unknown and 320
+respectively; do not treat the unknown as zero or infer a monetary cost from
+these counts. The measured agent-loop interval was 8.32 seconds, excluding prior
+source/dependency/adapter preparation, review and final session release. Provider
+pricing and total owner cost remain unknown; the upstream accumulator's zero is
+an unpriced placeholder, not free inference. There were no retries. Private
+requests, responses, trajectories and broker records are retained outside Git;
+provider connection configuration is not published.
+
+This qualifies our explicit **text compatibility adapter**, not the upstream
+recommended provider-native function-calling path, arbitrary generated command
+execution, or a full official upstream installation. The provider was given the
+known task and exact command order: this tests neither action selection nor bug
+discovery. It does not add a prospective sample, change the completed v2 null
+result, support an efficacy/cost-saving claim, or remove the remaining matched
+action-capacity, cost-accounting and blinded-audit requirements for a new cohort.
