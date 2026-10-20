@@ -78,3 +78,27 @@ and found no byte/position mismatch. Counts demonstrate exercised requests, not
 complete branch/schedule coverage, speed, recall or new upstream defects. The
 initial capture is retained; more assertions alone would not establish a better
 oracle. No production change or new fsspec PR is justified by these passes.
+
+## Cancellation/retry: distinguish data from position
+
+```sh
+python -B examples/native-file-cache/cancellation.py --source /path/to/reviewed/filesystem_spec
+```
+
+This separate standard-library probe calls the real `BackgroundPrefetcher.afetch`
+with an event-gated async byte source. It checks cancellation during an inflight
+read, a lock waiter, partial assembly, and a soft seek after partial skipping.
+Every offset holds a different byte, and retried reads must equal the original
+range. Teardown releases gates, joins owned readers, closes the prefetcher and
+checks its queue/tasks. It does not replace the actual prefetch implementation.
+
+All four cases passed on Windows/Python3.14.3 and isolated Linux/Python3.12.10
+against raw 941e6f9 sources. The first private version timed out before the
+soft-seek cancellation: it had primed too few reads to schedule the gated block.
+The corrected fixture waits for actual backend entry and checks the intermediate
+offset before cancelling; the original setup failure is not a target bug.
+These four controlled schedules found no incorrect retry bytes. They do not
+qualify physical network/MRD cancellation, the public buffered-file wrapper,
+arbitrary interleavings, performance or the complete upstream suite. Revalidate
+the priming schedule when producer batching changes; a preparation timeout is
+inconclusive, not evidence to patch production or relax the byte oracle.
