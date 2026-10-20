@@ -70,6 +70,16 @@ actual maintainer-supported route; do not rename branches, disguise authorship,
 switch accounts or change prose to evade a guard. No exhaustive workflow scan or
 automatic eligibility classifier is added by this route.
 
+For red hosted checks, read the first failing stage before changing code or
+rebuilding a private environment. A vLLM pre-run authorization refusal also
+caused a Read the Docs build to stop before dependency installation or MkDocs;
+the second red status was not an independent documentation failure. Keep raw
+FAIL/skip states and classify only the inspected cause. See
+[CI admission cascades](../knowledge/lessons/ci-admission-cascade-before-code-debugging.json).
+The existing `upstream_review_state` distinguishes maintainer authorization from
+test failure without claiming local qualification, asking for forbidden labels
+or initiating any external action.
+
 ### Withdrawn scope must also cover queued work
 
 On an authorized delivery host, repeat `kimi_scout_delivery.py --exclude-repo

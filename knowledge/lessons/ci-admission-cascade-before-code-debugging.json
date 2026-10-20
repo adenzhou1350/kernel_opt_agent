@@ -1,0 +1,22 @@
+{
+  "id": "ci-admission-cascade-before-code-debugging",
+  "title": "Trace CI admission cascades before debugging target code",
+  "applies_when": "A hosted PR check is red or skipped, but the test/lint/build stage may not have been admitted; another service reports a dependent build failure.",
+  "lesson": "Read the first failing stage's annotations and actual command output at the PR head before buying an environment rebuild, changing code or requesting a rerun. Distinguish an authorization/admission refusal from an assertion, compiler or formatter failure. Trace downstream checks back to that cause: a documentation job can exit before creating its environment because it gates on a failed pre-run-check. Preserve the raw red state and exact commit, but route the authorization wait to the maintainer rather than labeling the candidate a test failure or claiming CI passed. Reuse upstream_review_state's MAINTAINER_AUTHORIZATION classification when supported by the inspected evidence. Read the current repository's rules before any label/review request; do not bypass a guard, forge trusted status, or ask a human to proxy an agent-forbidden request.",
+  "avoid_when": "The same run can contain an independent code failure: do not excuse all red checks from one gate annotation, infer all logs from a status title, or treat skipped checks as green tests. Unknown mergeability and missing/truncated logs remain unknown. A Ready PR is not proof of passing local qualification, hosted CI, maintainer review or merge acceptance. Labels, thresholds and project policy change; the observed vLLM rule is not a universal contribution ban or an authorization to rerun. This scoped diagnosis establishes no discovery, PR-conversion or measured cost benefit.",
+  "evidence": [
+    {
+      "url": "https://github.com/vllm-project/vllm/actions/runs/39208892409/job/117917640640",
+      "note": "At PR62399 head2cfb963, the public failed job annotation requires a qualifying label or four merged PRs and reports one. It explicitly forbids an AI agent from requesting the label. Observed2026-10-20; this is an admission failure, not a target test assertion or a guarantee about current/future author eligibility."
+    },
+    {
+      "url": "https://app.readthedocs.org/projects/vllm/builds/35233580/",
+      "note": "This same-head failed build's public command output stops at docs/pre_run_check.sh after observing failed pre-commit/pre-run-check. No environment creation, documentation dependency installation or MkDocs command ran. The generic build-failed notice alone did not explain that dependency."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/2cfb96373aa0716efbac30d0a8e87833237f2138/docs/pre_run_check.sh",
+      "note": "Pinned source gates external PR documentation builds on head-specific pre-run-check conclusions and exits1 for failure/cancel/timeout. Other paths can skip, bypass via a maintainer-owned label, or proceed when no check/API data is available; inspect the actual run rather than generalizing a gate from this script alone."
+    }
+  ],
+  "status": "validated"
+}
