@@ -680,3 +680,30 @@ Next empirical work needs fresh source-inception enrollment, matched runnable
 target dependencies, existing-method controls, complete costs and arm-blinded
 native adjudication/miss auditing. The earlier two-slot null result is unchanged;
 no new discovery, PR, recall improvement or paper-ready result is claimed here.
+
+### Native-eligible production exploration, 2026-10-20
+
+A subsequent production check admitted two adjacent vLLM Rust client files,
+`protocol/request.rs` and `protocol/structured_outputs.rs`, at
+`b8e9001bf9568c801985889deff34d3b9fe6d0b0`. The same unchanged client crate had
+already passed its 136 native library tests. That made investigation feasible;
+it did not establish Python-engine integration or a defect in either file.
+
+Seven source-window reviews and one follow-up consumed 42,564 provider-reported
+tokens. Six root reviews abstained; one requested more context and its follow-up
+also abstained. No failing supported contract, qualified discovery or PR resulted.
+The follow-up correctly found that an empty structured-output constraint is
+explicitly rejected. The existing native log already includes
+`protocol::structured_outputs::tests::structured_outputs_rejects_missing_constraint`
+as passed; it was not rerun to manufacture another validation result. A separate
+owner source check rejected an earlier control-metadata-loss allegation after
+reading the actual Python producers and the Rust wire classification. Neither
+check establishes absence of other defects or exhaustive miss coverage.
+
+This was ordinary production exploration, not a registered cohort, randomized
+comparison, independent assessor or new v2 slot. Native setup and owner review
+costs are separate and incompletely measured; reported tokens are not a price.
+Preserve these null outcomes. Native execution capacity alone does not make
+fragmented source review useful or cost-effective. A future comparison needs a
+real full-file/direct-agent baseline and matched executable actions, rather than
+crediting file exposure, concurrency or successful environment setup as findings.
