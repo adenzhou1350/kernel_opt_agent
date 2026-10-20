@@ -1,0 +1,26 @@
+{
+  "id": "empty-half-open-range-before-http",
+  "title": "Resolve empty half-open byte ranges before constructing HTTP Range",
+  "applies_when": "A file API with exclusive-end byte bounds translates reads to inclusive HTTP Range headers, or a proposed empty-read fix is tested only at equal positive bounds.",
+  "lesson": "Check the public caller's range contract first. An empty half-open interval cannot be represented by blindly emitting end-1: malformed byte ranges can be ignored by a server and return a full object. Return empty bytes locally when the contract proves emptiness, before unnecessary size or data requests; reject invalid bounds explicitly when that is the promised contract. Test omitted bounds, end zero, equal bounds at EOF, positive/negative reversed bounds and valid mixed-sign controls. Do not compare raw signed bounds with start>=end before resolving relative offsets: (1,-1) can be nonempty. Preserve valid full/range reads and observe actual SDK/HTTP behavior, not only a mocked range formatter.",
+  "avoid_when": "Not every slice-like API promises Python slicing. RFC-invalid requests need not produce 416; ignoring them is allowed. This lesson does not establish real AWS behavior, a complete reversed-range repair, full CI or performance. The cited peer patch fixed five equal/zero-bound cases; four adjacent reverse-bound cases still returned the full six-byte object with local Moto. Their treatment remains a contract/scope decision, not a regression introduced by that patch. Do not open a competing copy of author-owned work or claim that a passing original suite covers new boundaries.",
+  "evidence": [
+    {
+      "url": "https://www.rfc-editor.org/rfc/rfc9110.html#section-14.1.1",
+      "note": "Integer range specifiers whose final position precedes the first are invalid;14.1.2 defines inclusive byte positions, and14.2 permits ignoring or rejecting invalid Range fields. This is protocol semantics, not a promise about a particular cloud service."
+    },
+    {
+      "url": "https://github.com/fsspec/s3fs/blob/303f45ece11ad091aec62bc81dd138d87a3ccaca/s3fs/core.py",
+      "note": "Pinned _cat_file translates explicit bounds without an empty-read check. This identifies the real SDK entry point, not just a copied range-formatting helper."
+    },
+    {
+      "url": "https://github.com/fsspec/s3fs/blob/80a894250d0c404c1b01f7196e97b2d89320fc27/s3fs/core.py",
+      "note": "Peer PR1065's bounded guard returns before _process_limits for equal bounds or an omitted start with end 0. This source does not implement all reverse-bound cases."
+    },
+    {
+      "url": "https://github.com/fsspec/s3fs/pull/1065#issuecomment-6283738664",
+      "note": "Independent full-SDK/local-Moto Linux comparison: original five regressions fail on main and pass on peer; seven nonempty controls pass on both; four additional reverse-bound cases return the entire object on both. No live AWS, full-suite or prospective discovery-yield claim."
+    }
+  ],
+  "status": "validated"
+}
