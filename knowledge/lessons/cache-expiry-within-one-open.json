@@ -15,7 +15,7 @@
     },
     {
       "url": "https://github.com/fsspec/filesystem_spec/pull/2341",
-      "note": "AI-assisted proposed fix df1188a: three clock-controlled registered regressions fail on unchanged production and pass on native Windows3.14.3/Linux3.12.3; Linux also retains one passing mapper control. Related complete selections: Windows410pass/20skip, Linux399pass/31skip; applicable pre-commit hooks pass. Hosted CI and upstream acceptance remain separate."
+      "note": "Three clock-controlled registered regressions fail on unchanged production and pass on native Windows3.14.3/Linux3.12.3; Linux also retains one passing mapper control. Original related selections: Windows410pass/20skip, Linux399pass/31skip; applicable hooks pass. Maintainer merged the two-commit PR on 2026-10-20 as f248e0277e488daade1925e29bca61601bb3b5fe; all eleven recorded hosted checks succeeded. This establishes acceptance of this scoped fix, not general cache safety or Scout efficiency."
     }
   ],
   "status": "validated"

@@ -16,6 +16,10 @@
     {
       "url": "https://github.com/fsspec/filesystem_spec/pull/2340",
       "note": "AI-assisted proposed repair at b450b99: same registered EOF/non-EOF tests give baseline 1 failure/1 passing control and candidate 2 passes on native Windows3.14.3 and Linux3.12.3. Complete prefetcher/cache/mapping selections pass329 each, no skips; applicable hooks pass. Initial missing-fixture/plugin preparation failures are retained separately. Not full-project/cloud/downstream CI, performance or upstream acceptance."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/pull/2340#issuecomment-6295859006",
+      "note": "After the unrelated filecache expiry repair #2341 merged, refreshed branch db0869e retains the identical prefetch change/tests on master2972d21. Windows524pass/20skip, Linux513pass/31skip across prefetch/cache/mapping and cached-filesystem selections; the old failing test_expiry and all three controlled-expiry cases pass. Same EOF test still discriminates unchanged master prefetcher versus repair; no upstream acceptance claim. Refresh a known stale failing base with the actual accepted fix, rather than weakening the regression, retrying a timer or inflating this patch's scope."
     }
   ],
   "status": "validated"
