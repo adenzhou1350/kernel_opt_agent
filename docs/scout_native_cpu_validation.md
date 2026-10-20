@@ -25,6 +25,7 @@ sequence, phase gate or method whitelist. Case history is in the
 | Test a model/backend without migrating production? | [Finite public batch](#finite-public-batch-without-a-task-specific-executor) |
 | Reuse task-private dependencies? | [Content versus isolation](#dependency-reuse-content-is-not-isolation) |
 | Setup/collection failed before assertions? | [Platform/package routes](#package-and-language-routes); retain failure, not a bug verdict |
+| Run a Rust crate whose native tests invoke a Python wire fixture? | [Pinned Cargo/uv and short socket-temp route](references/scout_native_cpu_worked_routes.md#rust-client-crate-with-a-python-wire-fixture); not full engine qualification |
 | Check an existing sequential loop's native-feedback mechanics? | [No-model agent/sandbox canary](../examples/native-agent-loop/README.md); custom environment and known fixture, not efficacy or real-provider qualification |
 
 Before paid CPU reproduction generation, the delivery worker queries the selected

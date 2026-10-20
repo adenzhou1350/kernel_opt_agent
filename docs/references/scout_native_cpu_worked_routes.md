@@ -440,6 +440,7 @@ encoding fix for every executable.
   [small retry library](scout_native_cpu_validation_notes.md#a-small-dependency-free-retry-library).
   The comparison route also covers GoAWK API checks without claiming its missing
   GNU AWK differential oracle is available.
+- Rust: [client crate with an upstream Python wire fixture](#rust-client-crate-with-a-python-wire-fixture).
 - C++: [small native translation units](scout_native_cpu_validation_notes.md#small-owner-reviewed-c-translation-units),
   [Torch-dependent units](scout_native_cpu_validation_notes.md#torch-dependent-cpu-translation-units),
   [Mooncake private dependencies](scout_native_cpu_validation_notes.md#mooncake-store-private-c-dependencies-before-model-generated-tests).
@@ -450,6 +451,69 @@ dependencies. Before remote execution, inspect
 [sandbox feasibility](scout_native_cpu_validation_notes.md#remote-sandbox-feasibility-before-model-execution)
 and the authorized environment; do not silently start local WSL or bypass an
 execution-policy denial. Process capture is not a security sandbox.
+
+### Rust client crate with a Python wire fixture
+
+A read-only PATH lookup is not a complete installation inventory. Before a cold
+Rust setup, inspect surviving **task-owned** SDK records and verify the actual
+compiler/Cargo versions and artifacts. A previous Rust 1.97.1 installation and
+Cargo cache could be reused, but did not satisfy vLLM's `rust-toolchain.toml`
+selection of 1.95. Materializing that selection in the same private rustup home
+left the old SDK available; no global toolchain or shell profile was changed.
+
+At [vLLM `b8e9001`](https://github.com/vllm-project/vllm/tree/b8e9001bf9568c801985889deff34d3b9fe6d0b0/rust),
+the raw-Git bundle supplied the complete Rust workspace plus root toolchain and
+contribution instructions: 532 regular tracked files, about 1.30 MB compressed.
+The unchanged crate was tested with Rust/Cargo 1.95.0 and uv 0.12.12:
+
+```sh
+cargo test --manifest-path /private/source/rust/Cargo.toml \
+  -p vllm-engine-core-client --lib --locked --offline -- --test-threads=2
+```
+
+Use available nextest when the target instructions require it; it was absent
+in this environment. Review the package's actual Python fixture too. This
+crate executes its original, executable `python_compat.py` through its `uv run`
+shebang and PEP 723 dependencies. The fixture produces real MessagePack/NumPy
+frames for Rust assertions, but mirrors Python structures; it does **not**
+import the Python vLLM engine. Pre-materialize its dependencies through uv,
+disable Python downloads, then keep Cargo and uv offline during the test.
+Cargo.lock pins the Rust dependency selection. The Python script's declared
+version ranges are not a complete byte-pinned Python dependency closure.
+
+Initial preparation failures remain separate: a controller used an unsupported
+capture-result key after a successful toolchain install; Cargo then encountered
+a registry connection failure. A subsequent optional offline `uv lock` failed
+despite the script environment being runnable. A working installed environment
+does not imply enough cached registry metadata for a new universal resolution.
+That extra lock gate was not an upstream test requirement and was not used to
+rewrite the script. Dependency recovery reused the original source and runnable
+fixture; there were no model calls or generated target tests.
+
+The first complete native invocation ran **136 tests: 101 passed, 35 failed**.
+Thirty-four failing cases reported `SUN_LEN`; the remaining timeout-message
+assertion encountered transport setup failure rather than its intended wait.
+The redirected task temporary directory made pathname Unix socket addresses too
+long. Moving only socket temp storage to a short, unique, owner-private root
+preserved artifacts and build caches on the task volume.
+
+The next capture passed **136/136, zero skipped**, with unchanged tracked source,
+test identities, command and compiled test-binary digest. Its new private HOME
+was also different, so an additional HOME-matched control restored the original
+HOME: **only TMPDIR differed**, and the same 136 cases passed again. No test was
+dropped or edited. The existing `scout_native_run` captured original failures,
+complete libtest accounting and natural process-group exit. A private uv lock
+file remained in the short temporary directory; it was retained, not treated as
+a live process or grounds for deleting another task's files.
+
+This qualifies that pinned **client lib-test baseline**, including the registered
+Python-fixture comparison, not all Rust workspace targets, an HTTP server,
+Python engine, model/GPU behavior, performance or hosted CI. It is not a new
+upstream defect, discovery-policy result or a fresh prospective study case.
+Keep the same-source failure/control rather than filing a bug for an artificial
+deep-temp-root setup. The reusable
+[socket-path lesson](../../knowledge/lessons/unix-socket-temporary-path-budget.json)
+states applicability and exceptions.
 
 ### CPU transport logic before RDMA qualification
 
