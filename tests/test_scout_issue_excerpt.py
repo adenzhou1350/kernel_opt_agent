@@ -108,6 +108,59 @@ class IssueExcerptTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 issue_text_excerpt(text, limit)
 
+    def test_prior_citations_keep_current_complete_lines_under_same_budget(self):
+        policy = "Not a correctness promise: this is a proposed progress policy."
+        owned = "I have not opened a repair PR yet; this work is still preliminary."
+        text = "HEAD\n" + "x"*2900 + "\n"+policy+"\n" + "y"*1000 + "\n"+owned+"\n" + "z"*900+"TAIL"
+        quotes = ["this is a proposed progress policy", "I have not opened a repair PR yet"]
+        self.assertTrue(all(q not in issue_text_excerpt(text, 2109) for q in quotes))
+        for limit in (2109, 1581, 1000):
+            text = issue_text_excerpt(text, limit, quotes=quotes)
+            self.assertLessEqual(len(text), limit)
+            self.assertIn(policy, text)  # The negation/qualification is not removed.
+            self.assertIn(owned, text)
+            self.assertTrue(text.startswith("HEAD"))
+            self.assertTrue(text.endswith("TAIL"))
+
+    def test_missing_ambiguous_and_long_line_hints_do_not_invent_source(self):
+        for text, quotes in (
+            (self.body, ["a deleted author statement"]),
+            (self.body+"\nrepeat\nrepeat\n", ["repeat"]),
+            ("HEAD\n"+"x"*4000+"target"+"y"*4000+"\nTAIL", ["target"]),
+            (self.body, [OMISSION.strip()]),
+        ):
+            with self.subTest(quotes=quotes):
+                self.assertEqual(issue_text_excerpt(text, 1000, quotes=quotes),
+                                 issue_text_excerpt(text, 1000))
+        with self.assertRaises(ValueError): issue_text_excerpt(self.body, 1000, quotes="target")
+        with self.assertRaises(ValueError): issue_text_excerpt(self.body, 1000, quotes=["x"]*6)
+
+    def test_emit_only_preserves_citations_verified_in_both_parent_and_current_source(self):
+        quote = "Current literal policy is not a correctness guarantee."
+        body = "HEAD\n" + "x"*2900 + "\n"+quote+"\n" + "y"*1000 + "\nTAIL"
+        source = issue_evidence(f"https://github.com/{REPO}/issues/1", "Report", body)
+        parent = dict(id="root", root="root", depth=0, sources=[source],
+                      analysis=json.dumps({"title":"policy", "evidence":[
+                          {"url":source["url"],"quote":quote}]}))
+        for index, current in enumerate((source, {**source,"text":source["text"].replace(quote,"DELETED")}, source)):
+            root = self.root / str(index)
+            producer = self.producer(root)
+            # Force the actual emitter to shrink this report; retain the same
+            # input cap and no Context/API reads or model call.
+            packet = dict(name="",repo=REPO,question="",sources=[current])
+            budget = len((scout.SYSTEM+scout.dumps(packet)).encode())+100
+            with patch.object(scout,"MAX_INPUT_BYTES",budget), patch.object(
+                research,"lesson_suggestions",return_value={"status":"NO_MATCH"}):
+                actual_parent = parent if index < 2 else {
+                    **parent, "sources":[{**source,"text":"No observed citation here."}]}
+                self.assertTrue(producer.emit("child",producer.config["repos"][0],
+                                             [current],"source_followup",parent=actual_parent))
+            with scout.connect(root) as db:
+                child=json.loads(db.execute("SELECT packet FROM jobs").fetchone()[0])
+            self.assertLessEqual(len((scout.SYSTEM+scout.dumps(child)).encode()),budget)
+            self.assertEqual(quote in child["sources"][0]["text"], index==0)
+            self.assertTrue(child["sources"][0]["truncated"])
+
     def test_page_and_full_issue_ingestion_keep_literal_tail_without_extra_fetch(self):
         item = {"number": 1, "title": "Report", "body": self.body, "comments": 0}
         calls = []

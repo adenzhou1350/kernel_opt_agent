@@ -1191,6 +1191,24 @@ class ResearchProducer:
             retrieval_identity(source)
             for source in parent.get("sources", [])
         } if parent else set()
+        # Prior analysis is not source authority. Reuse only literal citations
+        # observed in the actual parent source; excerpting checks they still
+        # occur in the newly retrieved report. No old text is appended/resurrected.
+        prior_quotes = {}
+        if parent:
+            try:
+                cited = json.loads(parent["analysis"]).get("evidence", [])
+            except (ValueError, TypeError, AttributeError):
+                cited = []
+            for ref in cited[:5] if isinstance(cited, list) else []:
+                if not isinstance(ref, dict):
+                    continue
+                url, quote = ref.get("url"), ref.get("quote")
+                if (isinstance(url, str) and isinstance(quote, str)
+                        and 1 <= len(quote) <= 300 and any(
+                            old["url"] == url and quote in old["text"]
+                            for old in parent.get("sources", []))):
+                    prior_quotes.setdefault(url, []).append(quote)
         while (
             len((scout.SYSTEM + scout.dumps(packet)).encode("utf-8"))
             > scout.MAX_INPUT_BYTES
@@ -1222,7 +1240,8 @@ class ResearchProducer:
             )
             size = int(len(longest["text"]) * 0.75)
             longest["text"] = (
-                issue_text_excerpt(longest["text"], size)
+                issue_text_excerpt(longest["text"], size,
+                                   quotes=prior_quotes.get(longest["url"], ()))
                 if longest.get("issue_excerpt") == "head-tail"
                 else longest["text"][:size]
             )

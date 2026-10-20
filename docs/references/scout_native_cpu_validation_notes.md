@@ -1086,6 +1086,23 @@ complete current issue/comments before publication. Already clipped historical
 packets cannot recover missing text without fresh evidence. A replay on a case
 used to develop this change is an exposed canary, not a holdout benefit estimate.
 
+When a follow-up packet must shrink an issue again, its parent's literal
+citations can guide selection of complete current lines. They must have occurred
+in an actual parent source and still occur uniquely in the freshly supplied
+report; prior analysis alone is not source evidence. At most five short hints
+share at most one third of the same excerpt budget (capped at 1,000 characters).
+Ambiguous, missing or oversized lines and small budgets use ordinary excerpting.
+This replaces text within the cap, adds no GET/model call, and never restores a
+deleted sentence from historical analysis. Remaining context can still be lost;
+review fresh evidence and the full report before a public action.
+
+An exposed replay of a real failed Scout follow-up retained both previously
+dropped policy/author-work statements in the same 2,109-byte excerpt on isolated
+Linux. Deleted-line and ambiguous/oversized-line controls passed. This tests
+compression mechanics only: the old answer remains failed and charged, and no
+model call was repeated. It is not a prospective discovery, precision, total-cost
+or PR-conversion improvement estimate.
+
 ## Audit service-free test entrypoints before preparing dependencies
 
 A runner's `--no-services` flag may only skip starting its sidecars. It does
