@@ -540,6 +540,8 @@ def configuration(path):
             raise ValueError("repository source_windows must be 1..32")
         if type(spec.get("followup_import_context", False)) is not bool:
             raise ValueError("followup_import_context must be a boolean")
+        if type(spec.get("issue_intake", True)) is not bool:
+            raise ValueError("issue_intake must be a boolean")
         if type(spec.get("followup_pr_revision_context", False)) is not bool:
             raise ValueError("followup_pr_revision_context must be a boolean")
         if type(spec.get("followup_pr_review_context", False)) is not bool:
@@ -987,6 +989,7 @@ class ResearchProducer:
             {
                 "repo": spec["repo"],
                 "source_windows": spec.get("source_windows", self.config["source_windows"]),
+                "issue_intake": spec.get("issue_intake", True),
                 **{
                     k: self.state["repos"].get(spec["repo"], {}).get(k, 0)
                     for k in ("scanned_sources", "available_sources", "issue_page")
@@ -1211,6 +1214,8 @@ class ResearchProducer:
         return self.context.snapshot(spec["repo"], spec.get("ref", "main"))
 
     def issue(self, spec, progress):
+        if not spec.get("issue_intake", True):
+            return False
         if time.time() < progress.get("issues_after", 0):
             return False
         items = progress.setdefault("issues", [])

@@ -35,6 +35,15 @@ increment empty-frontier backoff; the queue-capacity guard still applies.
 `NO_NEW_EVIDENCE` requires a complete dry rotation. Neither signal establishes
 repository exhaustion, candidate quality, fairness or improved PR conversion.
 
+For a newly prepared native environment with narrow verified coverage, a repository
+may opt into `"issue_intake": false`. This leaves source audits and existing-lead
+follow-ups enabled but makes no issue-page/source GET or issue admission from that
+path; unread issue cursors are preserved for a later explicit re-enable. Omission
+defaults to `true`, so existing scopes keep their behavior. Telemetry reports this
+setting per repository: a source-only dry rotation is not a search of its issues.
+This is scope/cost control, not automatic validation, a total model-call cap or
+evidence that the restricted scope is productive.
+
 Repair draws default to Python with disjoint production/test directory scopes.
 Optional `--language go` classifies `*_test.go` separately from other `.go` files,
 allowing co-located directory scopes; explicit `./` selects the repository root.

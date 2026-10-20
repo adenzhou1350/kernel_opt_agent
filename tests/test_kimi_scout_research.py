@@ -654,6 +654,47 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(len(self.jobs()), 1)
         self.assertEqual(json.loads(self.jobs()[0]["packet"])["focus_issue"], 43)
 
+    def test_issue_intake_requires_an_explicit_boolean_and_defaults_to_enabled(self):
+        configured = research.configuration(self.config)
+        self.assertTrue(configured["repos"][0].get("issue_intake", True))
+        self.assertNotIn("issue_intake", configured["repos"][0])
+        for value in (False, True):
+            self.value["repos"][0]["issue_intake"] = value
+            self.config.write_text(json.dumps(self.value), encoding="utf-8")
+            self.assertIs(research.configuration(self.config)["repos"][0]["issue_intake"], value)
+        for value in (None, 0, 1, "false", [], {}):
+            with self.subTest(value=value):
+                self.value["repos"][0]["issue_intake"] = value
+                self.config.write_text(json.dumps(self.value), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "issue_intake must be a boolean"):
+                    research.configuration(self.config)
+
+    def test_source_only_scope_preserves_unread_issue_cursor_until_reenabled(self):
+        self.spec["issue_intake"] = False
+        progress = {"issue_page": 2, "issues": self.context.issue_page("a/b")}
+        before = json.dumps(progress, sort_keys=True)
+        with patch.object(self.context, "issue_page", side_effect=AssertionError("unexpected issue GET")), patch.object(
+            self.context, "snapshot", side_effect=AssertionError("unexpected source GET")
+        ):
+            self.assertFalse(self.producer.issue(self.spec, progress))
+        self.assertEqual(json.dumps(progress, sort_keys=True), before)
+        self.assertEqual(self.jobs(), [])
+        self.spec["issue_intake"] = True
+        self.assertTrue(self.producer.issue(self.spec, progress))
+        self.assertEqual(json.loads(self.jobs()[0]["packet"])["focus_issue"], 42)
+
+    def test_source_only_scope_still_audits_source_and_follows_existing_leads(self):
+        self.spec["issue_intake"] = False
+        with patch.object(self.context, "issue_page", side_effect=AssertionError("unexpected issue GET")):
+            self.assertTrue(self.producer.source_audit(self.spec, {}))
+            self.finish(self.jobs()[0])
+            self.assertTrue(self.producer.followup(self.spec, {}))
+        self.assertEqual(len(self.jobs()), 2)
+        self.assertEqual(json.loads(self.jobs()[0]["packet"])["research"]["stage"], "source_audit")
+        self.producer.config["repos"][0]["issue_intake"] = False
+        self.producer.publish("READY")
+        self.assertIs(json.loads((self.root / "research.json").read_text())["goals"][0]["issue_intake"], False)
+
     def test_issue_skip_labels_config_is_bounded(self):
         self.value["repos"][0]["issue_skip_labels"] = ["no-new-fix-pr"]
         self.config.write_text(json.dumps(self.value), encoding="utf-8")
