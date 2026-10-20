@@ -461,6 +461,37 @@ before writing another installed-directory exporter. Target offline resolution
 still must succeed; small-sandbox file limits and missing conditional artifacts
 are setup failures, not target bug verdicts or permission to weaken limits.
 
+For a reviewed Python-module overlay on a compatible existing installation,
+reuse `scout_python_overlay.stage_package` from the exported native runtime:
+
+```python
+from pathlib import Path
+from scout_python_overlay import stage_package
+
+prepared = stage_package(
+    controlled_installed_package, fresh_arm_root / "package_name",
+    {"submodule.py": Path(reviewed_source_file).read_bytes()},
+)
+```
+
+It copies resources/native libraries without importing the package, rejects links
+and an existing destination, omits bytecode caches, applies exact reviewed bytes,
+and checks source content before/after plus replacement hashes. Use distinct fresh
+roots and processes for both arms; select and assert the actual imported module
+path/hash in the test. Execute through the existing native runner with appropriate
+external resource bounds, not this preparation function. A copy does not resolve
+dependencies or establish source/build/ABI compatibility. Controlled trees are
+required: observations are non-atomic, I/O deadlines cooperative, and dependencies
+outside the package remain unbound. Failed partial outputs are preserved, never
+merged or automatically removed.
+
+One native CPU K2 parser replay used this helper on a 3,417-file installed package
+(490,778,381 bytes). Its complete 21-case inventory and per-case outcomes matched
+the earlier manual-copy replay in both arms, including the two different failures
+per arm; no installed-module change or process-group cleanup was required. This
+validates preparation reuse for that overlay, not a full current-source build,
+GPU/model correctness, faster discovery, or measured cost/PR-yield improvement.
+
 ## Complete pytest cohorts
 
 Small `compare_regression` comparisons must declare the whole observed cohort.
