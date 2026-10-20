@@ -512,3 +512,71 @@ paper novelty. Before a fresh cohort, action capacity, consistent budgets,
 target dependencies, complete cost and arm-blinded miss auditing still need
 qualification. Keep this SDK optional; no LiteLLM dependency was added to the
 standard-library Scout runtime.
+
+### Non-menu native-provider repair: known-fixture check, 2026-10-20
+
+The next component check removed the command menu. The same installed, pinned
+mini-SWE-agent loop and native `LitellmModel` delegated actions to the shared
+`CPUSandboxEnvironment` with explicit dynamic mode. A controller-side observer
+retained native responses and reported usage without rewriting commands or
+changing the upstream parser/observation formatter. Its serialized config omitted
+connection settings. This is an adapted optional controller, not an unmodified
+upstream environment or a new default Scout provider.
+
+The model received the **same known synthetic exclusive-slice defect**, its
+public behavioral contract and the two seed checks. It could inspect files,
+compose stdlib-only commands, create `test_subject.py`, edit `subject.py` and
+submit. Seed checks could not be edited. This reused, unblinded task is not a
+held-out sample, new finding, leak-free discovery test or extra prospective slot.
+
+One budget object supplied launch/task declarations, the query observer, agent
+step/wall limits and sandbox limits: six query attempts, six sandbox commands,
+180 decision seconds, at most 30 seconds per request, five seconds per command,
+2,048 output tokens per request and 32,768 bytes of prepared messages. A 15,000
+reported-token threshold stopped further actions/requests **after** a response;
+it is not a pre-reserved hard total-token quota. Unknown usage stopped rather
+than counting zero. Upstream retry attempts were one, SDK retries zero and
+fallbacks disabled. These settings still do not prove wire-level HTTP attempt
+counts or billed monetary cost. No environment repair or install was needed.
+
+The single run returned four native responses and executed four unmodified
+commands: inspect, generate/run tests before repair, edit/run tests, and submit.
+The generated five tests covered clamping control, interior/exclusive boundary,
+empty and single-element slices. The production edit removed the inclusive-end
+increment. Seed bytes stayed unchanged. Each of the three tool observations
+matched its originating native tool-call ID and actual broker output, and the
+final command stopped the loop. All four containers were removed; the owned
+session was released. No host-shell fallback, networked test, GPU, local WSL,
+production Scout mutation or public PR resulted from this toy check.
+
+All four shell exits were zero, **including the command that observed four
+assertion failures**: the model appended `; echo`, masking the failing unittest
+exit. The repair command and final submission similarly used shell composition.
+The controller did not silently rewrite them or equate shell success with test
+success. After full owner review of the small generated source/test files, the
+existing `SandboxCPU` ran identical test bytes against original and repaired
+sources in two new checkpoint/restore CPU sessions. Both ran five tests: original
+exit one/four assertion failures, repaired exit zero/no failures; neither had
+errors or skips. Input hashes, isolation, persistence, cleanup and release
+matched. This is the independent evidence for this particular repair, not the
+model's summary or its shell return code. Added protocol controls preserve the
+exit/summary contradiction and missing-structured-summary rejection behavior;
+those controls are not additional live-model or HTTP simulation samples.
+
+Returned usage was 8,131 input plus 1,847 output tokens (9,978 total), including
+3,648 cached input tokens. Reasoning counters were a subset of output and were
+not added again. The decision interval was 23.55 seconds, excluding earlier
+SDK/source/controller development, owner review, the independent comparison and
+final release. The comparison used two additional CPU commands. Monetary price
+and complete development cost remain unknown; an SDK cost placeholder of zero
+does not mean free inference. Differences from earlier finite-action checks are
+not an effectiveness, latency or cost comparison.
+
+This qualifies a real provider's autonomous command/test/edit mechanics on one
+known fixture under a consistent declared budget. It closes that specific
+component gap, but does not establish effective evidence selection, recall,
+PR conversion, full target-package validation or paper novelty. The completed
+source-inception v2 null result remains unchanged. A fresh prospective comparison
+still needs matched action/dependency capacity, complete accounting, baselines
+and arm-blinded miss auditing; this successful toy run does not substitute for
+those requirements.

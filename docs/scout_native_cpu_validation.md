@@ -201,6 +201,15 @@ reuse the same installed broker and CPU health/isolation checks. Dynamic sandbox
 commands require explicit owner opt-in; this does not enable tools in ordinary
 Scout workers or change the three-file comparison scope below.
 
+A [real native-provider non-menu check](references/scout_source_inception_pilot_v2_results.md#non-menu-native-provider-repair-known-fixture-check-2026-10-20)
+subsequently produced and repaired a known synthetic test case, then passed an
+independent same-test CPU comparison. That is a component qualification, not a
+discovery or equal-budget method comparison. In particular, generated shell
+commands can end with `; echo` or a pipeline and report exit zero after failed
+tests. Neither that shell status nor the model's submission is a test verdict.
+Review generated sources/tests and rerun identical test bytes on both source
+arms with the existing verifier; preserve structured outcomes and input hashes.
+
 For an already reviewed `agent-sandbox` installation, an owner can inject its
 existing `call(action, arguments)` client into the delivery library:
 

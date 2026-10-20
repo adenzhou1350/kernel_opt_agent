@@ -193,6 +193,28 @@ class Tests(unittest.TestCase):
                 self.assertEqual(delivery.classify(value)[0], "INCONCLUSIVE")
                 self.assertNotIn("restore", [a for a, _ in broker.actions])
 
+    def test_shell_success_and_visible_test_text_do_not_replace_outcome_summary(self):
+        def shell_masks_failure(row):
+            row.update(exit_code=0, stdout="Ran 2 tests\nFAILED (failures=1)\nexit=1\n")
+
+        broker = Broker(damage=shell_masks_failure)
+        value = self.compare(broker)
+        self.assertTrue(value["inconclusive"])
+        self.assertEqual(delivery.classify(value)[0], "INCONCLUSIVE")
+        self.assertEqual(broker.runs, 1)
+        self.assertNotIn("restore", [action for action, _ in broker.actions])
+
+    def test_shell_exit_must_agree_with_structured_test_outcomes(self):
+        value = self.compare(Broker())
+        self.assertEqual(delivery.classify(value)[0], "REVIEWING")
+        for arm, masked_exit in (("before", 0), ("fixed", 1)):
+            with self.subTest(arm=arm):
+                damaged = copy.deepcopy(value)
+                damaged[arm]["exit_code"] = masked_exit
+                state, reason = delivery.classify(damaged)
+                self.assertEqual(state, "INCONCLUSIVE")
+                self.assertIn("contradicts unittest outcome", reason)
+
 
 if __name__ == "__main__":
     unittest.main()

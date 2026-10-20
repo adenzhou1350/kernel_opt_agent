@@ -140,3 +140,10 @@ This demonstrates execution/state mechanics, **not** a model-generated repair,
 autonomous discovery or a budget-matched general-agent benchmark. The existing
 fixed-command example remains literal-only. Neither enables execution in the
 production Scout workers or changes their tool-free provider contract.
+
+A later [real-provider non-menu repair check](../../docs/references/scout_source_inception_pilot_v2_results.md#non-menu-native-provider-repair-known-fixture-check-2026-10-20)
+used this Environment with the unchanged native Mini parser/loop. The model
+composed commands and regression tests and repaired the same known toy defect;
+an owner-reviewed, fresh two-arm comparison independently discriminated the
+versions. This does not turn either scripted example above into an autonomous
+model test, admit a prospective cohort or demonstrate better discovery.
