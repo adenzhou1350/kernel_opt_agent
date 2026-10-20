@@ -742,6 +742,18 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertNotIn("qualified", result)
 
 
+    def test_effort_advice_rechecks_native_adapter_without_realization_claim(self):
+        result = lesson_suggestions("GLM reasoning effort native SDK request forwarding")
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "reasoning-effort-is-model-specific")
+        self.assertIn("each adapter's actual request", card["lesson"])
+        self.assertIn("absent-stays-absent control", card["lesson"])
+        self.assertIn("Low effort may reduce discovery quality", card["avoid_when"])
+        self.assertTrue(any("litellm_model.py" in item["url"] for item in card["evidence"]))
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_source_link_advice_distinguishes_checkpoint_from_test_success(self):
         result = lesson_suggestions("symlink archive regular-file workspace persistence")
         card = result["matches"][0]

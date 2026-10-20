@@ -707,3 +707,53 @@ Preserve these null outcomes. Native execution capacity alone does not make
 fragmented source review useful or cost-effective. A future comparison needs a
 real full-file/direct-agent baseline and matched executable actions, rather than
 crediting file exposure, concurrency or successful environment setup as findings.
+
+### Real-project direct-tool development stops, 2026-10-20
+
+Tenacity `32ac68f0941319c0d2f4fb927f96e4ee29bb46c6` provided a real small
+Python project, not another synthetic repair. The owner had already exposed this
+pin on October 18 and identified an author-owned fix in PR722; that defect was
+explicitly excluded. These are development observations, **not fresh cohort
+enrollment, new v2 slots or independent study results**.
+
+The [native route](scout_native_cpu_worked_routes.md#tracked-links-versus-workspace-persistence)
+preserved the complete original linked source and default pytest selection.
+It retained a successful CLI run with failed workspace persistence, then a fresh
+ephemeral-source run with successful report persistence. The latter's JUnit
+case mismatch remains inconclusive; no case totals or tests were rewritten.
+A regular-file read view and original archive were supplied to the direct agent;
+native checks would reconstruct the original tree, not import that read view.
+This is a read-only investigation design, not persistent editable-checkout parity.
+
+The unchanged pinned Mini agent, native tool parser and CPU Environment were used
+with actual GLM calls, no automatic retry/fallback, and explicit task/SDK/network
+boundaries. Each attempt had ten queries/actions, 360 decision seconds,
+45 seconds/request, 15 seconds/command, 3,072 output tokens/request, 98,304
+prepared-message bytes and a 60,000 reported-token **post-response** stop.
+
+| Attempt | Changed development condition | Responses / commands | Reported tokens | Terminal observation |
+| --- | --- | --- | --- | --- |
+| v1 | Initial real-project task | 1 / 0 | 3,969 | Length-truncated reasoning, no tool call; native format failure |
+| v2 | Explicitly inspect source before recalling possible bugs | 4 / 3 | 20,695 | Read actual files; next answer again truncated; native format failure |
+| v3 | Also forward the already configured `reasoning_effort=low` into native SDK options | 9 / 8 | 67,348 | Post-response token stop before dispatching the ninth proposed command |
+
+The native adapter had omitted the effort field, although the separate Scout
+tool-free HTTP adapter already forwarded it. An actual pinned SDK HTTP check
+against an owned loopback stand-in distinguished old omission, explicit `low`
+and absent-stays-absent controls, with three parsed mock responses and zero model
+or target calls. Postman CLI could not start because of a missing packaged
+module; no Postman simulation pass is claimed. This proves request serialization,
+not the real gateway's internal effort policy or a causal quality/cost effect.
+
+Across all three attempts: **14 provider responses, 92,012 reported tokens,
+11 source-reading commands, zero model-issued native assertions and zero
+qualified findings/PRs**. All sessions were released. The last response is
+charged even though the post-response threshold prevented its action; 60,000
+was not a hard pre-request billing limit. Cached inputs are subsets, not extra
+tokens; prices, setup/owner time and complete development cost remain unknown.
+The v3 observer exited nonzero and produced no accepted final submission.
+Do not relabel budget/format stops as `NO_LEAD` or absence of defects, or hide
+earlier failures behind the adapter correction. No further same-pin retry was
+started. The direct-agent research baseline still lacks a completed real-project
+native investigation and matched fresh-source/miss auditing; this is not evidence
+that the evidence selector outperforms it or that the project is paper-ready.

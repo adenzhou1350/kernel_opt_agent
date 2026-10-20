@@ -2,7 +2,7 @@
   "id": "reasoning-effort-is-model-specific",
   "title": "Calibrate the model's reasoning effort before increasing discovery concurrency",
   "applies_when": "A reasoning model exhausts completion allowances without a final answer, or a model migration assumes that none and omitted effort disable thinking.",
-  "lesson": "Check the exact model's template and serving documentation before raising output caps or parallelism. GLM-5.3 documents low/high/max and defaults to max for omitted or unrecognized effort; none is not a thinking-off setting. Explicit low is a bounded calibration candidate, not a universal default. Freeze the exact request and compare completed visible answers, schema validity, inclusive completion usage and wall time on representative tasks. Keep incomplete responses and their charged usage; do not classify them as no findings. Apply any change explicitly in controller configuration and keep frozen research arms unchanged.",
+  "lesson": "Check the exact model's template and serving documentation before raising output caps or parallelism. GLM-5.3 documents low/high/max and defaults to max for omitted or unrecognized effort; none is not a thinking-off setting. Explicit low is a bounded calibration candidate, not a universal default. Recheck each adapter's actual request: a tool-free backend forwarding controller configuration does not prove a separate native-agent SDK received it. Test the old omission, explicit forwarding and absent-stays-absent control through the real SDK against an owned loopback endpoint before spending model calls. Freeze the exact request and compare completed visible answers, schema validity, inclusive completion usage and wall time on representative tasks. Keep incomplete responses and their charged usage; do not classify them as no findings. Apply any change explicitly in controller configuration and keep frozen research arms unchanged.",
   "avoid_when": "Do not transfer GLM-5.3 settings to another model or assume a gateway forwards a parameter merely because it accepts the request. Low effort may reduce discovery quality. A completed answer is not a verified bug, and a single diagnostic is not accuracy, PR yield, causal cost or throughput evidence. An absent reasoning-token counter remains unknown; do not subtract guessed reasoning from inclusive completion tokens.",
   "evidence": [
     {
@@ -12,6 +12,10 @@
     {
       "url": "https://docs.vllm.ai/en/latest/api/vllm/parser/glm47_moe/",
       "note": "The GLM-5.3 parser guard ignores disabling switches for an always-thinking chat template rather than leaking reasoning into content. This is serving implementation evidence, not a measured efficiency result."
+    },
+    {
+      "url": "https://github.com/SWE-agent/mini-swe-agent/blob/04d809ceab9df28f9adaed044884180159172930/src/minisweagent/models/litellm_model.py",
+      "note": "Pinned native model merges model_kwargs with call kwargs before LiteLLM. A caller must actually populate the optional effort field; acceptance of another adapter's configuration is not native request parity. SDK HTTP serialization against a local stand-in does not prove a real gateway realizes the requested effort."
     }
   ],
   "status": "validated"
