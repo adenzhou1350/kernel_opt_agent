@@ -19,9 +19,9 @@ parser.add_argument(
 )
 parser.add_argument(
     "--suite",
-    choices=("block", "simple", "all"),
+    choices=("block", "simple", "adaptive", "all"),
     default="block",
-    help="Keep the original block checks, select simple caches, or run both",
+    help="Select block/simple/adaptive checks; all retains the block+simple cohort",
 )
 options = parser.parse_args()
 source_root = options.source.resolve()
@@ -42,6 +42,7 @@ class ObservedMemoryFileSystem(MemoryFileSystem):
 
     def cat_file(self, path, start=None, end=None, **kwargs):
         counters["backend_requests"] += 1
+        self.observed_ranges.append((start, end))
         return super().cat_file(path, start=start, end=end, **kwargs)
 
 
@@ -55,7 +56,7 @@ class StrictMemoryFileSystem(ObservedMemoryFileSystem):
 
 
 class CachePublicReadTests(unittest.TestCase):
-    def check_cache(self, cache_type, *, trim=True):
+    def check_cache(self, cache_type, *, trim=True, adaptive_options=None):
         blocked = cache_type in ("blockcache", "background")
         for size in (0, 1, 3, 4, 5, 7, 8, 9, 31, 32, 33, 97):
             for block in (1, 4, 8, 16):
@@ -65,7 +66,7 @@ class CachePublicReadTests(unittest.TestCase):
                         if blocked
                         else {"trim": trim}
                         if cache_type == "bytes"
-                        else {}
+                        else adaptive_options or {}
                     )
                     with self.subTest(
                         cache=cache_type, size=size, block=block, options=cache_options
@@ -78,6 +79,7 @@ class CachePublicReadTests(unittest.TestCase):
                         )
                         fs = fs_type(skip_instance_cache=True)
                         fs.payload_size = size
+                        fs.observed_ranges = []
                         path = f"/cache-probe/{cache_type}-{size}-{block}-{maxblocks}"
                         fs.pipe_file(path, data)
                         ref = io.BytesIO(data)
@@ -94,6 +96,27 @@ class CachePublicReadTests(unittest.TestCase):
                             expected_type = caching.caches[cache_type]
                             self.assertIsInstance(actual.cache, expected_type)
                             owned_cache = actual.cache
+                            if cache_type == "adaptive":
+                                self.assertIsNotNone(owned_cache._prefetcher)
+                                # A leading read-all can keep this small file in
+                                # one buffer, masking seek/restart mistakes.
+                                for offset in (0, block, 2 * block, 0, size // 2):
+                                    self.assertEqual(
+                                        actual.seek(offset), ref.seek(offset)
+                                    )
+                                    self.assertEqual(
+                                        actual.read(block), ref.read(block)
+                                    )
+                                    self.assertEqual(actual.tell(), ref.tell())
+                                    counters["read_checks"] += 1
+                                    counters["position_checks"] += 1
+                                if size > block:
+                                    self.assertTrue(
+                                        any(
+                                            0 < end - start < size
+                                            for start, end in fs.observed_ranges
+                                        )
+                                    )
                             for offset, whence in (
                                 (0, 0),
                                 (size + 3, 0),
@@ -144,6 +167,8 @@ class CachePublicReadTests(unittest.TestCase):
                         self.assertIsNone(actual.cache)
                         if cache_type == "background":
                             self.assertTrue(owned_cache._closed)
+                        if cache_type == "adaptive":
+                            self.assertIsNone(owned_cache._prefetcher)
                         if cache_type == "mmap" and size:
                             self.assertTrue(owned_cache.cache.closed)
                         fs.rm(path)
@@ -176,6 +201,18 @@ class CachePublicReadTests(unittest.TestCase):
     def test_mmap_public_read_traces(self):
         self.check_cache("mmap")
 
+    def test_adaptive_cache_public_read_traces(self):
+        for concurrency in (1, 4):
+            for limit in (1, 16, None):
+                with self.subTest(concurrency=concurrency, max_prefetch_size=limit):
+                    self.check_cache(
+                        "adaptive",
+                        adaptive_options={
+                            "concurrency": concurrency,
+                            "max_prefetch_size": limit,
+                        },
+                    )
+
 
 if __name__ == "__main__":
     block_methods = [
@@ -194,6 +231,7 @@ if __name__ == "__main__":
     methods = {
         "block": block_methods,
         "simple": simple_methods,
+        "adaptive": ["test_adaptive_cache_public_read_traces"],
         "all": block_methods + simple_methods,
     }[options.suite]
     result = unittest.TextTestRunner().run(

@@ -12,6 +12,8 @@ range contracts. No cache algorithm is copied or replaced.
 python -B examples/native-file-cache/check.py --source /path/to/reviewed/filesystem_spec
 # Add serial none/bytes (trimmed and untrimmed)/readahead/first/all/mmap checks:
 python -B examples/native-file-cache/check.py --source /path/to/reviewed/filesystem_spec --suite all
+# Separately exercise the adaptive cache through its real background producer:
+python -B examples/native-file-cache/check.py --source /path/to/reviewed/filesystem_spec --suite adaptive
 ```
 
 Use a fresh process, existing execution limits, and the project's supported
@@ -48,7 +50,7 @@ offline Linux/Python3.12.10. Both imported the same raw-Git `caching.py` bytes;
 the example checks the selected cache class and nonempty mmap disposal too.
 `--suite simple` selects only the seven added configurations. These passes found
 no new defect; they are not a reason to submit a production change. KnownParts
-zero-fill semantics and adaptive/async paths are not covered.
+zero-fill semantics and adaptive paths are not covered by that `all` cohort.
 
 For the Linux replay, an initial package-wide archive included an unrelated
 large upstream test cassette and hit the sandbox's file-size limit before any
@@ -56,3 +58,23 @@ oracle test ran. A fresh raw-Git bundle containing only package Python files
 passed under the unchanged limits. Keep extraction and execution in the same
 container when using an ephemeral directory; do not claim upstream pytest
 coverage from that production-only export.
+
+## Adaptive reads: avoid a warm-buffer-only oracle
+
+The separate `--suite adaptive` cohort uses the same pinned 941e6f9 source and
+real buffered-file/memory-backend caller. It requires an active prefetcher, not
+the synchronous fallback. Across 288 size/block/concurrency/prefetch-limit cases
+it checks 21,024 reads and 19,872 file positions on both Windows/Python3.14.3 and
+offline Linux/Python3.12.10. Concurrency settings are 1 and 4; limits are 1 byte,
+16 bytes and the default. Sizes remain 0..97 bytes: this does not cover the
+5 MiB chunk or 64 MiB variable-I/O regimes, network failures or racing callers.
+
+An initial version began with a read-all and passed 19,584 checks while making
+only 264 backend calls: the entire tiny file could stay in one buffer. The final
+cohort starts with bounded sequential reads and backward/forward seeks, asserts
+an actual partial backend range for files larger than the block, then runs the
+existing fixed-seed traces. It made 1,128 backend calls in each development run
+and found no byte/position mismatch. Counts demonstrate exercised requests, not
+complete branch/schedule coverage, speed, recall or new upstream defects. The
+initial capture is retained; more assertions alone would not establish a better
+oracle. No production change or new fsspec PR is justified by these passes.
