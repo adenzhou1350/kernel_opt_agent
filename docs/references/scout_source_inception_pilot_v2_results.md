@@ -619,3 +619,64 @@ the defect inventory, repair the original v2 availability/blinding deviations
 or change its null result. Reusing a full target environment closes a concrete
 capacity gap; it does not by itself establish equal action capacity, total-cost
 advantage, effective evidence selection or paper readiness.
+
+### Second native provider: M3 mechanics, 2026-10-20
+
+Two separately retained format checks preceded one M3 agent run: one through
+the installed MiniMax SDK and one through the pinned, unchanged mini-SWE
+`LitellmModel` and its real tool parser. Each returned one valid native bash
+tool call; neither executed a command. The SDK check observed one HTTP dispatch.
+The Mini check used one upstream attempt, zero configured SDK retries and no
+fallback; a TCP connection count does not prove HTTP attempt cardinality.
+Both retained complete numeric usage, 467 reported tokens per response. For the
+SDK response, Messages input/cache-read/cache-create/output counters were
+235/202/0/30: input plus output alone (265) is not the total. LiteLLM's prompt
+counter was already cache-inclusive; adding its cache subset again would also
+be wrong. These checks are not study slots or agent successes.
+
+The subsequent M3 run reused the earlier GLM check's **exact original fixture,
+seed bytes, shared CPU environment and budget object**: six queries and commands,
+180 decision seconds, 30 seconds/request, five seconds/command, 2,048 output
+tokens/request, 32,768 prepared-message bytes and a 15,000 reported-token
+post-response stop. The private observer changed only provider loading,
+credential-free configuration fingerprinting and the native provider selector.
+The pinned mini-SWE agent, tool parser and feedback formatter stayed unchanged;
+the provider-specific API translation was LiteLLM's existing implementation.
+Authentication traveled to the controller on SSH stdin, not into the sandbox.
+No environment install, broker limit change, GPU or local WSL was used.
+
+M3 returned six responses and six autonomous commands, consuming its complete
+query/action count. It inspected files, generated tests, repaired the subject,
+corrected its own test expectations, checked both source variants, and submitted.
+Its **first generated tests contained two incorrect expected values** consistent
+with the broken implementation. After observing failures on the repaired source,
+it corrected those tests within the original budget; those earlier tests and
+failures remain in the trace. The final submission marker had empty summary
+text. Several pipelines masked failing unittest exits, and running the seed file
+as a script did not discover its tests. Neither zero shell exits nor the final
+marker was accepted as a correctness verdict.
+
+After full owner review, the existing independent CPU comparator ran identical
+final test bytes on the original and repaired source, using checkpoint/restore
+and fresh sessions. Each ran six tests: original exit one/five assertion failures;
+repaired exit zero/no failures, errors or skips. Source/test hashes, unchanged
+seed bytes, actual native arguments, tool-result IDs, container removal and
+session releases matched. These two extra commands, and the review, are separate
+from the agent's budget and cost. All owned sessions were released.
+
+The agent reported 14,363 tokens (12,699 input plus 1,664 output), with cached
+inputs a subset, not another charge. The two preceding format checks cost 934
+additional reported tokens. Its 18.67-second decision interval excludes prior
+SDK/controller preparation, format checks, owner review, independent comparison
+and release. Prices and complete development cost remain unknown. This is not
+a controlled latency, sampling-effort or provider-quality comparison with GLM;
+same ceilings do not make realized costs equal.
+
+Both available providers have now exercised native model/action mechanics under
+the same declared resource profile, rather than M3 being a text-only comparator.
+This closes that preflight gap, not full target-package parity or the research
+question. Do not repeat this known synthetic repair as a discovery evaluation.
+Next empirical work needs fresh source-inception enrollment, matched runnable
+target dependencies, existing-method controls, complete costs and arm-blinded
+native adjudication/miss auditing. The earlier two-slot null result is unchanged;
+no new discovery, PR, recall improvement or paper-ready result is claimed here.
