@@ -923,3 +923,38 @@ reconciled with native evidence**; do not credit a target bug, completed clean
 audit or proof that the package has no bugs. This supports independent review
 and exact failure-identity checking, not a new scientific method, selector
 superiority, cross-project efficacy, PR conversion or paper readiness.
+
+### Cross-provider development arm stopped before investigation, 2026-10-21
+
+An independent MiniMax-M3 arm received the same packaging source, task, payload,
+declared budgets and sandbox runtime as the preceding GLM development audit.
+The controller changed only the existing native SDK provider configuration;
+the model received neither the GLM trajectory, generated probe nor owner review.
+The owner already knew that outcome, so this remains a **retrospective development
+comparison**, not fresh blinded enrollment. Equal declared bounds do not establish
+equal price, realized effort or total development cost.
+
+The first response returned **two valid bash tool calls**, both correctly parsed
+by the pinned native agent/LiteLLM stack. The controller requires exactly one
+action per response and rejected the response before dispatch. Its generic error
+said "Expected exactly one native bash action; none dispatched": *none dispatched*
+describes execution, not absence of tool calls. This was not an authentication,
+network, missing-tool or native parser failure. It also does not establish that
+the provider ignored a wire-level disabling flag: the retained request observation
+contains prepared messages, not a serialized provider HTTP request.
+
+Record **one returned query, 1,318 inclusive reported tokens** (1,204 input,
+114 output; 128 cached input is a subset), **zero investigation commands** and
+9.22s including session release. All 142 protected sandbox inputs stayed unchanged;
+the session was released. No finding, valid no-finding conclusion or clean audit
+was produced. The terminal attempt was preserved without a retry, truncated tool
+list, command concatenation, parser modification or rescue query.
+
+This changes the next experiment: qualify the **common action-cardinality and
+format-recovery contract** across providers before fresh matched enrollment.
+Every rejected response must count toward its original query/token/time budget;
+any allowed native actions must count individually toward the action budget.
+Do not silently discard extra calls, grant one arm free repair attempts, or compare
+this zero-command termination with GLM's eight-command audit as research ability.
+No selector benefit, model ranking, improved PR conversion or paper readiness is
+established by this observation.
