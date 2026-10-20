@@ -580,3 +580,42 @@ source-inception v2 null result remains unchanged. A fresh prospective compariso
 still needs matched action/dependency capacity, complete accounting, baselines
 and arm-blinded miss auditing; this successful toy run does not substitute for
 those requirements.
+
+### Full-package execution capacity: existing Pluggy pin, 2026-10-20
+
+After the small repair component check, the same offline CPU sandbox ran
+Pluggy's **complete default pytest testpaths**, rather than another synthetic
+function or only its hookcaller companion. This reused the already owner-exposed
+`09fabb162` source and authentic `1.7.1.dev3+g09fabb162` wheel metadata; it is not
+a newly enrolled case or a replay of the completed pilot's model predictions.
+
+The existing raw-Git bundler transferred all 80 tracked files (98 archive entries
+including directories) and verified their extraction. Fourteen uploaded files,
+about 1.95 MB total, contained that
+bundle, its verifier, the existing hash-bound offline pytest capsule and target
+wheel. The previously qualified loader reconstructed only its bounded regular
+package files in memory/tmp storage. No file/resource limits were relaxed, no
+dependency was installed and no stubbed version, donor Pluggy subject or source
+function extraction replaced the target. Before pytest, module origin pointed
+to the pinned raw source; target wheel metadata preceded donor dependencies.
+
+The target `tox.ini`, original conftest and entire default `testing` selection
+were retained. With Python 3.12.10/pytest 9.1.1, disabled plugin autoload and cache
+provider, the single native command passed **220 tests, zero failures/errors/
+skips**. The existing structured JUnit parser independently reconciled all 220
+case records and totals, with no accounting issues. All tracked source bytes
+remained unchanged; isolation, input hashes, container removal and session
+release matched. The preparation/run interval was 8.75 seconds, excluding
+earlier wheel/capsule preparation, source review, the first local helper failure
+and final release. That helper had pre-created an extraction target which the
+existing atomic extractor correctly rejected, before any remote dispatch; its
+failure is preserved separately.
+
+This qualifies the full default test selection in this **specific offline
+stack**, not official `uv run` dependency groups, benchmark/coverage plugins,
+pre-commit, latest main, all Python versions or a package-level autonomous
+discovery. No model call or GPU was used. Existing tests passing do not exhaust
+the defect inventory, repair the original v2 availability/blinding deviations
+or change its null result. Reusing a full target environment closes a concrete
+capacity gap; it does not by itself establish equal action capacity, total-cost
+advantage, effective evidence selection or paper readiness.
