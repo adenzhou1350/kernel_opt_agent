@@ -44,6 +44,17 @@ setting per repository: a source-only dry rotation is not a search of its issues
 This is scope/cost control, not automatic validation, a total model-call cap or
 evidence that the restricted scope is productive.
 
+For an explicitly requested Python `references(name)` lookup, an indexed path's
+window now prefers the first AST call target with that terminal name over an
+earlier import, string or declaration. It reuses the file already fetched for
+the existing optional code-search route: no extra source slot or network read
+is introduced. `python_reference_anchor` discloses the selected line and syntax-only
+scope. Shadowing, conditional branches and decorators remain unresolved; this is
+not proof that the call is reachable or that all callers were found. Ordinary
+literal/definition requests, explicit start lines and unsupported syntax keep
+their existing behavior. A known GCSFS replay exposed the old import-only window;
+that development case is not unseen evidence or a measured discovery improvement.
+
 Repair draws default to Python with disjoint production/test directory scopes.
 Optional `--language go` classifies `*_test.go` separately from other `.go` files,
 allowing co-located directory scopes; explicit `./` selects the repository root.

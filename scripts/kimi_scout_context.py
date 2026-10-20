@@ -28,6 +28,7 @@ from scout_requested_definition import (
 from scout_symbol_references import (
     NATIVE_SUFFIXES,
     native_invocation_hint_line,
+    python_invocation_hint_line,
     reference_cache_limit,
 )
 from scout_symbol_references import (
@@ -458,6 +459,11 @@ class PublicContext:
             invocation = native_invocation_hint_line(raw, exact_hint)
             if invocation is not None:
                 exact_line = invocation
+        python_reference_line = None
+        if path.endswith(".py") and exact_hint in REFERENCE_REQUEST.findall(request_hints):
+            python_reference_line = python_invocation_hint_line(raw, exact_hint)
+            if python_reference_line is not None:
+                exact_line = python_reference_line
         if exact_line is not None:
             offset = max(0, exact_line - min(30, max_lines // 4))
             start = min(offset, max(0, len(lines) - max_lines)) + 1
@@ -504,6 +510,12 @@ class PublicContext:
             evidence["test_suite_anchor"] = {
                 "subject": suite[0], "line": suite[1] + 1,
                 "scope": "Literal suite-title match only; not execution, complete coverage or a passing verdict.",
+            }
+        if python_reference_line is not None:
+            evidence["python_reference_anchor"] = {
+                "line": python_reference_line + 1,
+                "kind": "call_expression",
+                "scope": "Syntactic terminal-name call match only; not resolved binding, runtime reachability or exhaustive callers.",
             }
         absent = absent_requested_identifiers(raw, request_hints)
         if absent:

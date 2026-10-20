@@ -234,6 +234,36 @@ def native_invocation_hint_line(raw, symbol):
     return masked.count("\n", 0, match.start()) if match else None
 
 
+def python_invocation_hint_line(raw, symbol):
+    """First matching Python call target, not an import or resolved binding.
+
+    A syntactic call can be shadowed, conditional or a decorator. Parse existing
+    bounded text only; invalid/unsupported source retains the caller's ordinary
+    literal fallback rather than proving that no invocation exists.
+    """
+    if (
+        not isinstance(raw, str)
+        or not isinstance(symbol, str)
+        or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,127}", symbol)
+        or len(raw.encode("utf-8")) > PYTHON_CACHE_LIMIT
+        or "\x00" in raw
+    ):
+        return None
+    try:
+        tree = ast.parse(raw)
+    except (SyntaxError, ValueError, RecursionError):
+        return None
+    lines = [
+        node.func.end_lineno - 1
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, (ast.Name, ast.Attribute))
+        and (node.func.id if isinstance(node.func, ast.Name) else node.func.attr)
+        == symbol
+    ]
+    return min(lines) if lines else None
+
+
 def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     """Honor explicit references(NAME), with <=2 existing-tree source windows.
 
