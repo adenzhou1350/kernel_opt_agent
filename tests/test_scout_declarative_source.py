@@ -99,19 +99,31 @@ class DeclarativeSourceTests(unittest.TestCase):
             packet = json.loads(db.execute("SELECT packet FROM jobs").fetchone()[0])
         self.assertIn(text, packet["sources"][0]["text"])
 
-    def test_followup_ranking_and_continuation_use_same_opt_in_scope(self):
+    def test_followup_ranking_keeps_declarative_discovery_opt_in(self):
         self.spec["declarative_source_prefixes"] = [PREFIX]
         snapshot = dict(self.snapshot, files=[YAML, "ee/accuracy.yaml"])
         self.assertEqual(research.relevant_paths(snapshot, "accuracy.yaml"), [])
         self.assertEqual(research.relevant_paths(snapshot, "accuracy.yaml", spec=self.spec), [YAML])
+
+    def test_supplied_text_continuation_does_not_expand_discovery_scope(self):
+        self.spec["declarative_source_prefixes"] = [PREFIX]
+        snapshot = dict(self.snapshot, files=[YAML, "ee/accuracy.yaml"])
         packet = {"repo": "a/b", "sources": [{
             "url": "https://raw.githubusercontent.com/a/b/" + "a" * 40 + "/" + YAML,
             "start_line": 1, "end_line": 120, "total_lines": 180, "truncated": True}]}
         analysis = {"next_check": "Read after line 120"}
-        self.assertIsNone(research.continuation_request(packet, snapshot, analysis))
+        expected = {"path": YAML, "start": 101, "max_lines": 120}
+        # A previously supplied text window can be continued; it does not make
+        # unseen YAML eligible for source discovery or execute its contents.
+        self.assertEqual(research.continuation_request(packet, snapshot, analysis), expected)
         self.assertEqual(research.continuation_request(packet, snapshot, analysis, spec=self.spec),
-                         {"path": YAML, "start": 101, "max_lines": 120})
+                         expected)
         packet["sources"][0]["url"] = packet["sources"][0]["url"].replace(YAML, "ee/accuracy.yaml")
+        self.assertEqual(research.continuation_request(packet, snapshot, analysis, spec=self.spec),
+                         {"path": "ee/accuracy.yaml", "start": 101, "max_lines": 120})
+        self.assertEqual(research.relevant_paths(snapshot, "accuracy.yaml", spec=self.spec), [YAML])
+        self.assertIsNone(research.continuation_request(packet, {**snapshot, "files": [YAML]}, analysis, spec=self.spec))
+        snapshot["commit"] = "c" * 40
         self.assertIsNone(research.continuation_request(packet, snapshot, analysis, spec=self.spec))
 
 
