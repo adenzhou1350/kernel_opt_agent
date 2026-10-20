@@ -1,0 +1,51 @@
+"""Append to the author's unchanged unit file; no model/tokenizer downloads."""
+
+
+def setup_module():
+    import hashlib
+    import importlib
+    import os
+    from pathlib import Path
+
+    module = importlib.import_module('vllm.reasoning.k2_horizon_reasoning_parser')
+    actual = Path(module.__file__).resolve()
+    assert actual == Path(os.environ['EXPECTED_PARSER']).resolve()
+    assert hashlib.sha256(actual.read_bytes()).hexdigest() == os.environ['EXPECTED_PARSER_SHA256']
+
+
+def _tool_boundary_case(effort):
+    # A tool argument may describe a literal marker. The reasoning region has
+    # already ended at TOOL_CALLS_START and must not consume that later text.
+    content = '<ifm|tool_calls><ifm|tool_call>ping{"text":"</ifm|think>"}</ifm|tool_call></ifm|tool_calls>'
+    return 'plan' + content, content, {'chat_template_kwargs': {'reasoning_effort': effort}}
+
+
+def _stream_boundary_chunks(chunks, kwargs):
+    parser = K2HorizonReasoningParser(_k2_tokenizer(), **kwargs)
+    deltas = [parser.extract_reasoning_streaming(
+        previous_text='', current_text='', delta_text=chunk,
+        previous_token_ids=[], current_token_ids=[], delta_token_ids=[])
+        for chunk in chunks]
+    return (''.join(d.reasoning or '' for d in deltas if d),
+            ''.join(d.content or '' for d in deltas if d))
+
+
+def test_implicit_tool_boundary_precedes_later_end_tag():
+    actual, expected = {}, {}
+    for effort in ('medium', 'low'):
+        output, content, kwargs = _tool_boundary_case(effort)
+        parser = K2HorizonReasoningParser(_k2_tokenizer(), **kwargs)
+        actual[effort] = parser.extract_reasoning(output, _request())
+        expected[effort] = ('plan', content)
+    assert actual == expected
+
+
+def test_implicit_boundary_parsing_is_chunk_invariant():
+    actual, expected = {}, {}
+    for effort in ('medium', 'low'):
+        output, content, kwargs = _tool_boundary_case(effort)
+        for mode, chunks in [('one-delta', [output]), ('characters', list(output)),
+                             ('at-tool-boundary', [output[:19], output[19:]])]:
+            actual[effort, mode] = _stream_boundary_chunks(chunks, kwargs)
+            expected[effort, mode] = ('plan', content)
+    assert actual == expected
