@@ -25,6 +25,7 @@ sequence, phase gate or method whitelist. Case history is in the
 | Check backend integer rounding before a full compiler build? | [Reviewed CuTeDSL scalar/MLIR witness](../examples/native-cutedsl-truncdiv/README.md); not vector, compiler or GPU qualification |
 | Check config lifetime across successive alias loads? | [Shared-class serialization witness](../examples/config-alias-serialization/README.md); copied-helper and full-package `get_config` modes, with distinct source/runtime scope |
 | Check seeded CPU sampling after discarded prefill draws? | [Native tiny-model witness](../examples/native-cpu-seeded-prefill/README.md); exact-module overlays, token equality and a healthy-but-wrong skip-only control, not a full PR build or trained-model evaluation |
+| Does a tiny model exercise cache-format rejection? | [Boundary-skip witness](../examples/native-cpu-cache-dtype/README.md); keep a non-boundary layer, verify the spawned selector error and compare a default-generation control |
 | Test a model/backend without migrating production? | [Finite public batch](#finite-public-batch-without-a-task-specific-executor) |
 | Reuse task-private dependencies? | [Content versus isolation](#dependency-reuse-content-is-not-isolation) |
 | Setup/collection failed before assertions? | [Platform/package routes](#package-and-language-routes); retain failure, not a bug verdict |
