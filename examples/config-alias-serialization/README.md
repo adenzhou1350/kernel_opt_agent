@@ -128,3 +128,21 @@ prove that all wrapper designs fail or qualify an actual serving regression.
 
 This is an exposed operational candidate and reusable reproduction, not a new
 prospective research sample or evidence of Scout efficacy/PR conversion.
+
+## Check the documentation assistant's reference, not only its answer
+
+The documentation-assistant consultation was completed on 2026-10-20. Its reply
+called the side effect unintended and pointed to
+[PR39554](https://github.com/vllm-project/vllm/pull/39554). Independent inspection
+found that PR merged on 2026-04-21, but it fixes a different boundary: an
+`hf_overrides` type differing from the checkpoint's on-disk type must still load
+the registered config class. Its added test is the compatibility control already
+used above; it does not check sequential aliases or prior-object serialization.
+
+The review explicitly preserves the AutoConfig path so model, tokenizer and
+processor config construction stays consistent. The final patch registers both
+names while changing/restoring the shared class attribute. It is related work
+and a repair constraint, not evidence that this serialization witness is fixed,
+a maintainer confirmation of our report, or permission to bypass validation.
+Do not classify the candidate as a duplicate merely from the assistant's link,
+or call it accepted merely from the assistant's description.
