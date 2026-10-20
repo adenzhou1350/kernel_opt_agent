@@ -36,6 +36,17 @@ controller memory. A memory estimate for SDK children is not a measurement of
 HTTP threads, but a smaller estimate also needs evidence and reserve headroom.
 Preserve existing shared-host memory/disk guards and drain owned work before
 switching a running controller; do not run two controllers against one inbox.
+By default all backends retain the existing `provider-circuit.json`. For an
+intentional switch to a separately checked provider, an explicit
+`--provider-circuit-key alternative-v1` uses `provider-circuit-alternative-v1.json`
+in the same private run directory. Keys start with a lowercase letter and contain
+at most 48 lowercase letters, digits or hyphens. Reuse that key across restarts
+and subsequent use of the same provider; never rotate keys to evade an outage or
+rate limit. Omitting it still uses the original circuit, unchanged. This neither
+selects a provider nor supplies automatic fallback: choose the backend config
+explicitly, preserve failed jobs/unknown usage, and process only unclaimed work.
+The runtime exposes `provider_circuit_key` (null for the legacy file). A healthy
+alternative does not establish that the original provider recovered.
 HTTP mode permits up to 100 in-flight requests; SDK/SSH Kimi stays capped at 16.
 This is an admission ceiling, not a target occupancy. An empty deduplicated
 evidence frontier cannot be accelerated by raising it. Track completed valid

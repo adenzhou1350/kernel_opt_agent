@@ -19,6 +19,76 @@ def answer(**kwargs):
 
 
 class BackendTests(unittest.TestCase):
+    def test_explicit_provider_switch_preserves_failures_and_uses_real_http(self):
+        from tests.test_kimi_scout import scout, packet, result
+
+        requests = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                requests.append((self.path, body["model"]))
+                denied = body["model"] == "denied"
+                payload = (b"upstream unavailable" if denied else json.dumps(dict(
+                    choices=[dict(message=dict(content=json.dumps(result())), finish_reason="stop")],
+                    usage=dict(prompt_tokens=23, completion_tokens=41),
+                )).encode())
+                self.send_response(503 if denied else 200)
+                self.send_header("Content-Type", "text/plain" if denied else "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def log_message(self, *args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                scout.initialize(root)
+                ids = [scout.enqueue(root, packet(str(i))) for i in range(3)]
+                config = root / "provider.json"
+                def arguments(key):
+                    return SimpleNamespace(root=root, hours=0, concurrency=1, max_jobs=0,
+                        token_budget=0, feeds=None, github_auth=False, poll_seconds=300,
+                        output_tokens=256, timeout=15, error_cooldown_seconds=60,
+                        kimi_python=sys.executable, once=True, openai_backend_config=config,
+                        provider_circuit_key=key, return_summary_only=True)
+
+                config.write_text(json.dumps(dict(
+                    endpoint=f"http://127.0.0.1:{server.server_port}/v1/chat/completions",
+                    model="denied", alias="original", allow_http=True)))
+                with patch.object(scout.time, "time", return_value=1000.0):
+                    failed = scout.run(arguments("original"))
+                    self.assertEqual(failed["runtime"]["attempted_this_run"], 2)
+                    circuit = root / "provider-circuit-original.json"
+                    before = circuit.read_bytes()
+                    repeat = scout.run(arguments("original"))
+                    self.assertEqual(repeat["runtime"]["attempted_this_run"], 0)
+                    self.assertEqual(len(requests), 2)
+                    config.write_text(json.dumps(dict(
+                        endpoint=f"http://127.0.0.1:{server.server_port}/v1/chat/completions",
+                        model="available", alias="alternative", allow_http=True)))
+                    recovered = scout.run(arguments("alternative"))
+                self.assertEqual(recovered["runtime"]["attempted_this_run"], 1)
+                self.assertEqual(circuit.read_bytes(), before)
+                self.assertEqual(requests, [('/v1/chat/completions', model)
+                                           for model in ('denied', 'denied', 'available')])
+                with scout.connect(root) as db:
+                    states = dict(db.execute("SELECT id,state FROM jobs"))
+                self.assertEqual(states, dict(zip(ids, ('FAILED', 'FAILED', 'REVIEW'))))
+                receipt = json.loads((root / "results" / (ids[-1] + ".json")).read_text())
+                self.assertEqual(receipt["result"]["model"], "alternative")
+                self.assertEqual(receipt["charged_tokens_or_reservation"], 64)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+            self.assertFalse(thread.is_alive())
+
     def test_live_local_http_controls_survive_success_and_failure_without_retries(self):
         from tests.test_kimi_scout import scout, packet, result
 

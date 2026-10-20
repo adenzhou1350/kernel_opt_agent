@@ -980,8 +980,19 @@ def load_error_circuit(path, now):
         return 0, 0, 1, 0.0
 
 
+def error_circuit_path(root, key=None):
+    """An explicit stable backend namespace, not automatic failover or recovery."""
+    if key is None:
+        return root / "provider-circuit.json"
+    if not isinstance(key, str) or not re.fullmatch(r"[a-z][a-z0-9-]{0,47}", key):
+        raise ValueError("provider circuit key needs 1..48 lowercase letters, digits or hyphens, starting with a letter")
+    return root / f"provider-circuit-{key}.json"
+
+
 def run(args):
     root = Path(args.root).resolve()
+    circuit_key = getattr(args, "provider_circuit_key", None)
+    circuit_path = error_circuit_path(root, circuit_key)
     with single_runner(root):
         if (root / "STOP").exists():
             raise ValueError("STOP exists; remove it explicitly before restarting")
@@ -995,7 +1006,6 @@ def run(args):
         deadline = time.time() + args.hours * 3600 if args.hours else float("inf")
         running, attempts, next_feed = set(), 0, 0.0
         recovery_probes = set()
-        circuit_path = root / "provider-circuit.json"
         failures, answer_failures, error_cycles, cooldown_until = load_error_circuit(
             circuit_path, time.time()
         )
@@ -1039,6 +1049,7 @@ def run(args):
             "admission_limit": 1 if error_cycles else args.concurrency,
             "recovery_probe": bool(error_cycles and not cooldown_until),
             "provider_error_cycles": error_cycles,
+            "provider_circuit_key": circuit_key,
             "min_free_memory_mb": getattr(args, "min_free_memory_mb", 0),
             "worker_memory_mb": getattr(args, "worker_memory_mb", 0),
             "min_free_disk_mb": getattr(args, "min_free_disk_mb", 0),
@@ -1374,6 +1385,10 @@ def main(argv=None):
     worker.add_argument("--timeout", type=int, default=180)
     worker.add_argument("--poll-seconds", type=int, default=1800)
     worker.add_argument("--error-cooldown-seconds", type=int, default=900)
+    worker.add_argument(
+        "--provider-circuit-key",
+        help="explicit stable backend namespace; omit to retain the legacy circuit; not automatic failover",
+    )
     worker.add_argument(
         "--once", action="store_true", help="drain available work then exit"
     )

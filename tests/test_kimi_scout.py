@@ -948,6 +948,24 @@ class ScoutTests(unittest.TestCase):
             "failures": 0, "answer_failures": 0, "cycles": 0, "until": 0.0,
         })
 
+    def test_explicit_new_provider_preserves_the_original_outage(self):
+        job_id = self.add("new-provider")
+        legacy = self.root / "provider-circuit.json"
+        scout.write_json(legacy, dict(failures=0, answer_failures=0, cycles=2, until=2000.0))
+        before = legacy.read_bytes()
+        with patch.object(scout.time, "time", return_value=1000.0):
+            with patch.object(scout, "execute", side_effect=self.fake_execute) as execute:
+                old = scout.run(self.run_args())
+                execute.assert_not_called()
+                new = scout.run(self.run_args(provider_circuit_key="alternative"))
+        self.assertEqual(old["runtime"]["attempted_this_run"], 0)
+        self.assertEqual(new["runtime"]["attempted_this_run"], 1)
+        self.assertEqual(new["jobs"][0]["id"], job_id)
+        self.assertEqual(new["jobs"][0]["state"], "NO_LEAD")
+        self.assertEqual(legacy.read_bytes(), before)
+        self.assertEqual(json.loads((self.root / "provider-circuit-alternative.json").read_text()),
+                         dict(failures=0, answer_failures=0, cycles=0, until=0.0))
+
     def test_error_circuit_validation_and_bounded_deadline(self):
         path = self.root / "provider-circuit.json"
         self.assertEqual(scout.load_error_circuit(path, 1000.0), (0, 0, 0, 0.0))
@@ -973,6 +991,32 @@ class ScoutTests(unittest.TestCase):
             with self.subTest(body=body[:80]):
                 path.write_text(body, encoding="utf-8")
                 self.assertEqual(scout.load_error_circuit(path, 1000.0), (0, 0, 1, 0.0))
+
+    def test_named_provider_restart_keeps_its_own_backoff(self):
+        self.add("named-restart")
+        path = self.root / "provider-circuit-alternative.json"
+        scout.write_json(path, dict(failures=0, answer_failures=0, cycles=2, until=2000.0))
+        before = path.read_bytes()
+        with patch.object(scout.time, "time", return_value=1000.0):
+            with patch.object(scout, "execute") as execute:
+                observed = scout.run(self.run_args(provider_circuit_key="alternative"))
+        execute.assert_not_called()
+        self.assertEqual(observed["runtime"]["provider_circuit_key"], "alternative")
+        self.assertEqual(observed["runtime"]["attempted_this_run"], 0)
+        self.assertEqual(path.read_bytes(), before)
+        self.assertFalse((self.root / "provider-circuit.json").exists())
+
+    def test_provider_key_rejected_before_queue_or_circuit_mutation(self):
+        job_id = self.add("unclaimed")
+        for key in ("", "../escape", "a/b", "a\\b", "UPPER", "a.json", "x" * 49,
+                    "a\n", "a?b", True, 1, {}):
+            with self.subTest(key=key), patch.object(scout, "single_runner") as runner:
+                with self.assertRaisesRegex(ValueError, "provider circuit key"):
+                    scout.run(self.run_args(provider_circuit_key=key))
+                runner.assert_not_called()
+        with scout.connect(self.root) as db:
+            self.assertEqual(db.execute("SELECT state FROM jobs WHERE id=?", (job_id,)).fetchone()[0], "PENDING")
+        self.assertEqual(list(self.root.glob("provider-circuit*")), [])
 
     def test_persistent_bad_answers_have_separate_circuit_breaker(self):
         for i in range(10):
