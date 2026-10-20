@@ -429,3 +429,19 @@ known task and exact command order: this tests neither action selection nor bug
 discovery. It does not add a prospective sample, change the completed v2 null
 result, support an efficacy/cost-saving claim, or remove the remaining matched
 action-capacity, cost-accounting and blinded-audit requirements for a new cohort.
+
+A separate finite-choice development check removed the prescribed order. The
+same unchanged agent/parser could select any of six reviewed commands: inspect
+source or checks, run both native tests or either focused test, and submit.
+The real backend chose source inspection, the combined test and submission in
+three calls. Both native outcomes reached the final request and were correctly
+distinguished; all three containers were removed and the session released.
+Reported usage was 2,084 input plus 474 output tokens (2,558 total); cached input
+was unknown, unknown and zero. The agent-loop interval was 7.89 seconds,
+excluding preparation, review and release; monetary price remains unknown.
+This qualifies finite reviewed-action selection without an enforced order,
+not provider-native tool calls, arbitrary commands, a general action policy or
+better evidence selection. The observed order happens to match the earlier
+fixed sequence. It is still the same known synthetic fixture, not a new
+prospective case, an equal-budget comparison, a cost advantage or an efficacy
+result. The no-model public example and live Scout were not changed.
