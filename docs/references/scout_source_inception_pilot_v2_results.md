@@ -816,3 +816,53 @@ still lacks a completed investigation, fresh matched enrollment and miss audit.
 Future comparisons must budget the final submission/review explicitly for all
 arms, not credit partial source reads or passed controls as discoveries. No new
 same-pin retry, extra v2 slot, selector advantage or paper-ready result is claimed.
+
+### Reserved final step, empty submission, 2026-10-21
+
+One additional development task supplied TOMLKit
+`eddd27e43a62fe58707c311bfad2f52e72493f53` (0.15.2) and its exact
+`toml-test` gitlink `08ed8697864548b3cdb4b8decbf496bef47e1c82`.
+The owner had already examined this project; known lookup-rebuild performance
+and array-comment defects were explicitly excluded. This is not fresh enrollment,
+a replacement v2 slot, or a budget-matched comparison with the attempts above.
+
+The unchanged pinned Mini agent/native tool parser received readable original
+source, docs and tests, plus a helper reconstructing the verified original tree
+and corpus for native checks. Standard offline pytest dependencies were supplied;
+this was not Poetry-lock or official-CI qualification. The task covered documented
+Array/Table/document mutation and serialization, without a seeded defect, repair
+or publishing authority. An unresolved or no-finding conclusion was allowed.
+
+Bounds were eight queries/actions, 360 decision seconds, 80s/request,
+30s/command, 8,192 output tokens/request, 98,304 prepared-message bytes and a
+60,000 inclusive reported-token post-response stop. Low effort was forwarded;
+there were no retries/fallbacks. The eighth step was explicitly reserved for a
+nonempty final submission, with per-query budget reminders. This changes the
+task/configuration, not the pinned agent's native tool or submission parser.
+
+The model read the helper, issued five inline exploratory commands, ran the
+complete original suite, then printed only the submission marker. Inline outputs
+were not controlled defect witnesses: unsupported slice assignment and an
+incorrect `str.replace` call raised exceptions, not demonstrated project bugs.
+No standalone probe or conclusion file was generated. The helper's native
+JUnit/log/import observations independently establish **1,203 passes, no skips,
+failures or errors**, with the same complete case inventory as the preparation
+run. Selected source hashes and the outer full protected-input audit stayed
+unchanged; all eight action containers were removed and the session released.
+The command's `tail` pipeline exit alone was not used as the test verdict.
+
+The framework returned `Submitted` with `submission=""`. Its native completion
+protocol permits that representation; it is not itself an upstream agent bug.
+For this read-only investigation task, however, the requested conclusion and
+controlled finding were absent. Record **incomplete task output**, not completed
+investigation, valid `NO_LEAD`, absence of defects or a qualified PR. A reserved
+step/reminder did not suffice; no rescue call or owner-written answer was added.
+
+Eight responses consumed 29,803 inclusive reported tokens, including cache-read
+subsets. The recorded decision interval was 32.92s; earlier preparation/failures,
+source transfer, owner review and release are not included. Prices and total
+development/owner cost remain unknown. This establishes another real native-action
+capability observation and an output-contract failure, not selector superiority
+or paper readiness. Future matched comparisons need an independently evaluated
+task/output contract shared by the arms, counting incomplete outputs as failures
+without requiring every baseline to become successful through repeated retries.

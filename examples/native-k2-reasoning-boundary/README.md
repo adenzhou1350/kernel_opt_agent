@@ -77,3 +77,31 @@ validation by dropping Markdown backticks. That answer remains FAILED and charge
 6,758 reported tokens; it was not repaired into a valid discovery. The native
 review and this new boundary counterexample are separately acquired owner work,
 not a prospective trial, measured selection-policy gain or new authored PR.
+
+## Follow-up: author's earliest-boundary repair
+
+On 2026-10-21 the author updated the existing PR to
+[`7226521fdfb759960c1f1b171e74d76735421678`](https://github.com/vllm-project/vllm/commit/7226521fdfb759960c1f1b171e74d76735421678).
+Independent fresh-process checks reused the same CPU distribution and original
+21-test bytes, not a rewritten witness:
+
+| Exact author parser overlay | Passed | Failed | Skipped/errors |
+| --- | ---: | ---: | ---: |
+| Previous `8e4b43e` | 19 | 2 | 0 |
+| Updated `7226521` | 21 | 0 | 0 |
+
+The previous failures are exactly the two added checks above. The new implementation
+selects the earliest boundary and retains tool content when the tool marker comes
+first. A separate fresh process ran the updated author's entire
+[25-case unit file](https://github.com/vllm-project/vllm/blob/7226521fdfb759960c1f1b171e74d76735421678/tests/reasoning/test_k2_horizon_reasoning_parser.py)
+plus the unchanged two-check fragment: all27 passed without skips/errors.
+That added suite includes all three efforts and both boundary orders.
+
+Native report/log hashes and complete inventories were checked, parser/test bytes
+did not change during execution, and the original installed package remained
+unchanged. The captures took9.430/9.492/9.478 wall seconds with no required owned
+process-group cleanup. The existing unknown project-mark and Torch warnings were
+retained. These remain task-private module overlays with a synthetic tokenizer,
+not a complete source build, current full test matrix, real-model incidence,
+CUDA/server qualification or merge approval. The result supports the author's
+existing repair rather than another competing PR or a claimed Scout discovery.
