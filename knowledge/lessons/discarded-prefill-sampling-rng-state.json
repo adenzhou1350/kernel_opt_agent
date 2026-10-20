@@ -14,8 +14,8 @@
       "note": "Author repair snapshots only discarded requests' CPU generator states before the real sampler/rejection sampler, restores afterward, and retains offset rewind for other devices. Source mechanism; it does not establish GPU performance or all sampler-mode correctness."
     },
     {
-      "url": "https://github.com/adenzhou1350/kernel_opt_agent/tree/feature/community-optimization-lake/examples/native-cpu-seeded-prefill",
-      "note": "Scoped native fixture and conditions: parent chunk16 fails; author module unchunked/chunk16/chunk32 produces matching three-seed token IDs and healthy follow-ups. A controlled skip-only parent variant generates successfully but changes seeded tokens. Branch link is mutable: resolve its commit and recheck source/environment before reuse. No competing PR, model accuracy, speedup, complete upstream build/CI or prospective-selector claim."
+      "url": "https://github.com/vllm-project/vllm/pull/62688#issuecomment-6297545859",
+      "note": "Independent Linux verification and immutable fixture link: parent chunk16 fails; author module unchunked/chunk16/chunk32 produces matching three-seed token IDs and healthy follow-ups. A controlled skip-only parent variant generates successfully but changes two seeded outputs. Exact module overlays on the same official e68 CPU distribution/private tiny model; no competing PR, model accuracy, speedup, complete upstream build/CI or prospective-selector claim."
     }
   ],
   "status": "validated"
