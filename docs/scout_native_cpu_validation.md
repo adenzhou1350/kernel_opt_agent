@@ -81,6 +81,13 @@ than changing completed source verdicts. Exclusion is an owner decision, not an
 automatic interpretation of policy text or proof that a repository has no bugs.
 Removing the flag needs a separately justified scope decision, not a queue stall.
 
+Explicit owner intake can retain a `REVIEW` parent whose follow-ups all failed,
+with `owner_failed_followups` preserving the count and at most four recent job
+IDs. A failed request or rejected answer is not a new accepted analysis. Active,
+`NO_LEAD` and `NEEDS_CONTEXT` children still supersede the parent; automatic model
+intake remains leaf-only. This recovery neither retries the failed call nor
+changes its usage/outcome, source evidence, publication or execution authority.
+
 ### Local pinned packet
 
 `scout_git_source.py --repo LOCAL_REPO --spec selection.json --output FRESH.json`

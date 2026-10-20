@@ -97,11 +97,13 @@ class DeliveryMemoryTests(unittest.TestCase):
         )
         with (
             patch.object(delivery, "load_source", return_value=source),
+            patch.object(worker, "check_runtime") as runtime,
             patch.object(worker, "model", return_value=answer) as model,
             patch.object(worker, "sandbox") as sandbox,
         ):
             self.assertEqual(worker.execute(job), "INCONCLUSIVE")
         sandbox.assert_not_called()
+        runtime.assert_called_once_with(worker.root / "jobs" / job["id"], "stdlib")
         self.assertEqual(model.call_count, 1)
         packet = json.loads(model.call_args.args[2].split("\nPUBLIC DATA:\n", 1)[1])
         self.assertEqual(packet["owner_publications"]["items"][0]["url"], PR)

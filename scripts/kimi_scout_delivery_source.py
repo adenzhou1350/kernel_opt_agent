@@ -209,6 +209,9 @@ def select_leads(
     packets or applying LIMIT. It does not bypass any admission/exclusion rule.
     Owner selections carry bounded same-file deferral advice when available;
     advice never filters candidates or changes their source analysis.
+    A FAILED follow-up does not retire its REVIEW parent from owner-only
+    inspection. Active or accepted follow-ups still supersede that parent;
+    automatic model intake retains the original leaf-only rule.
     """
     if type(owner_review) is not bool:
         raise ValueError("owner_review must be a boolean")
@@ -247,6 +250,7 @@ def select_leads(
     buckets = {}
     seen = set(exclude_keys)
     excluded_ids = set(exclude_source_ids)
+    failed_followups = {}
     try:
         connection.execute("PRAGMA query_only=ON")
         connection.create_function(
@@ -279,10 +283,23 @@ def select_leads(
             + ",".join("?" for _ in excluded_repos) + ")"
             if excluded_repos else ""
         )
+        child_filter = " AND state!='FAILED'" if owner_only else ""
+        if owner_only:
+            for child, parent in connection.execute(
+                "SELECT id,json_extract(packet,'$.research.parent_job_id') FROM jobs "
+                "WHERE state='FAILED' AND "
+                "json_type(packet,'$.research.parent_job_id')='text' "
+                "ORDER BY finished DESC,id"
+            ):
+                context = failed_followups.setdefault(parent, {"count": 0, "job_ids": []})
+                context["count"] += 1
+                if len(context["job_ids"]) < 4:
+                    context["job_ids"].append(child)
         query = f"""SELECT id,packet,result FROM jobs
             WHERE {source_filter}state='REVIEW' AND id NOT IN (
               SELECT json_extract(packet,'$.research.parent_job_id') FROM jobs
               WHERE json_extract(packet,'$.research.parent_job_id') IS NOT NULL
+              {child_filter}
             )
             AND scout_selected_primary(id,packet,result)=1
             {unstaged}
@@ -329,6 +346,8 @@ def select_leads(
                     "analysis": analysis,
                     "canonical_key": key,
                     **({"verification_route": "OWNER_REVIEW_ONLY"} if owner_only else {}),
+                    **({"owner_failed_followups": failed_followups[row["id"]]}
+                       if row["id"] in failed_followups else {}),
                 }
             )
     finally:

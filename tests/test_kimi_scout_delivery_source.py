@@ -75,6 +75,45 @@ class SelectionTests(unittest.TestCase):
             [row["id"] for row in delivery.select_leads(self.root)], ["terminal"]
         )
 
+    def test_failed_followup_preserves_parent_for_owner_only_inspection(self):
+        for index, state in enumerate(
+            ("FAILED", "PENDING", "RUNNING", "NO_LEAD", "NEEDS_CONTEXT")
+        ):
+            self.add(f"parent{index}")
+            self.add(f"child{index}", packet(parent=f"parent{index}"), state=state)
+        before = (self.root / "scout.sqlite").read_bytes()
+        self.assertEqual(delivery.select_leads(self.root), [])
+        rows = delivery.select_leads(self.root, owner_review=True)
+        self.assertEqual([r["id"] for r in rows], ["parent0"])
+        self.assertEqual(rows[0]["owner_failed_followups"], {"count": 1, "job_ids": ["child0"]})
+        self.assertEqual(rows[0]["verification_route"], "OWNER_REVIEW_ONLY")
+        self.assertEqual(before, (self.root / "scout.sqlite").read_bytes())
+
+    def test_nearest_review_ancestor_survives_failed_followup(self):
+        self.add("root")
+        self.add("middle", packet(parent="root"))
+        for i in range(7):
+            self.add(f"failed{i}", packet(parent="middle"), state="FAILED", finished=i)
+        rows = delivery.select_leads(self.root, owner_review=True)
+        self.assertEqual([r["id"] for r in rows], ["middle"])
+        self.assertEqual(rows[0]["owner_failed_followups"], {
+            "count": 7, "job_ids": ["failed6", "failed5", "failed4", "failed3"]})
+        self.add("active", packet(parent="middle"), state="PENDING")
+        self.assertEqual(delivery.select_leads(self.root, owner_review=True,
+                                             source_ids=["middle"]), [])
+
+    def test_failed_followup_owner_recovery_keeps_filters_and_language_scope(self):
+        self.add("parent", packet(sources=[{"url": RAW.replace(".py", ".go")}]))
+        self.add("failed", packet(parent="parent"), state="FAILED")
+        for options in ({"owner_review": True}, {"native_cpu": True}, {"owner_language": "go"}):
+            with self.subTest(options=options):
+                rows = delivery.select_leads(self.root, source_ids=["parent"], **options)
+                self.assertEqual([r["id"] for r in rows], ["parent"])
+                self.assertEqual(rows[0]["verification_route"], "OWNER_REVIEW_ONLY")
+                self.assertEqual(delivery.select_leads(self.root, exclude_repos=[REPO], **options), [])
+                self.assertEqual(delivery.select_leads(self.root, exclude_source_ids=["parent"], **options), [])
+                self.assertEqual(delivery.select_leads(self.root, exclude_keys=[rows[0]["canonical_key"]], **options), [])
+
     def test_round_robin_is_not_dominated_by_newest_repository(self):
         for index in range(80):
             self.add(f"busy{index}", packet(repo="busy/repo"), finished=1000 + index)
@@ -316,6 +355,7 @@ class SelectionTests(unittest.TestCase):
 
     def test_owner_review_exact_ids_do_not_bypass_existing_delivery(self):
         self.add("staged", packet(sources=[{"url": RAW.replace(".py", ".go")}]))
+        self.add("failed-staged-followup", packet(parent="staged"), state="FAILED")
         self.add("fresh", packet(sources=[{"url": RAW.replace(".py", ".rs")}]))
         folder = self.root / "delivery"
         folder.mkdir()
@@ -334,7 +374,10 @@ class SelectionTests(unittest.TestCase):
         import kimi_scout_delivery as intake
 
         self.add("go", packet(sources=[{"url": RAW.replace(".py", ".go")}]))
+        self.add("failed", packet(parent="go"), state="FAILED")
         leads = delivery.select_leads(self.root, owner_review=True)
+        self.assertEqual([r["id"] for r in leads], ["go"])
+        self.assertEqual(leads[0]["owner_failed_followups"]["job_ids"], ["failed"])
         folder = self.root / "delivery"
         intake.initialize(folder)
         with self.assertRaisesRegex(ValueError, "owner_review=True"):
