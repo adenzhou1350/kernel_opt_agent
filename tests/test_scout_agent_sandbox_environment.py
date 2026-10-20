@@ -5,7 +5,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from scout_agent_sandbox_environment import CPUSandboxEnvironment, SandboxFailure
+from scout_agent_sandbox_environment import CPUSandboxEnvironment, SandboxFailure, require_text_submission
 
 IMAGE = "sha256:" + "a" * 64
 HEALTH = {"ready": True, "backend": "docker-cpu", "network": "none", "image": IMAGE,
@@ -119,6 +119,54 @@ class EnvironmentTests(unittest.TestCase):
 
         with self.assertRaises(Submitted):
             self.environment(finish=finish).execute({"command": "echo hello"})
+
+    def test_optional_text_contract_rejects_empty_marker_without_rewriting_raw_exit(self):
+        marker = "COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT"
+        called = []
+        result = copy.deepcopy(RESULT)
+        result["stdout"] = "  " + marker + "\n \t\n"
+        original = copy.deepcopy(result)
+        env = self.environment(result, finish=require_text_submission(
+            lambda *args: called.append(args), marker=marker))
+        output = env.execute({"command": "echo hello"})
+        self.assertEqual(output["returncode"], 0)
+        self.assertIn("TASK_OUTPUT_INCOMPLETE", output["output"])
+        self.assertFalse(called)
+        self.assertEqual(self.records[1][1], original)
+        self.assertEqual(self.records[2][0], "action-1-submission-rejected.json")
+        self.assertEqual(env.attempts, 1)
+        self.assertFalse(env.failed or env.uncertain)
+        self.assertEqual(result, original)
+        # A rejection consumed the real action. It never extends the budget.
+        env.max_actions = 1
+        with self.assertRaises(SandboxFailure):
+            env.execute({"command": "echo hello"})
+
+    def test_text_contract_delegates_nonempty_normal_and_failed_outputs(self):
+        marker = "COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT"
+        for text, code in ((marker + "\nNO_FINDING; checks incomplete\n", 0),
+                           (marker + "\n", 1), ("normal observation\n", 0)):
+            with self.subTest(text=text, code=code):
+                seen = []
+                result = copy.deepcopy(RESULT)
+                result.update(stdout=text, exit_code=code)
+                finish = require_text_submission(lambda env, output: seen.append(copy.deepcopy(output)), marker=marker)
+                output = self.environment(result, finish=finish).execute({"command": "echo hello"})
+                self.assertEqual(seen, [output])
+                self.assertEqual(len(self.records), 2)
+
+    def test_text_contract_is_opt_in_and_validates_callback_and_marker(self):
+        marker = "COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT"
+        seen = []
+        result = copy.deepcopy(RESULT)
+        result["stdout"] = marker + "\n"
+        self.environment(result, finish=lambda env, output: seen.append(output)).execute({"command": "echo hello"})
+        self.assertEqual(seen[0]["output"], marker + "\n")
+        for callback, value in ((None, marker), (lambda *a: None, ""),
+                                (lambda *a: None, " x"), (lambda *a: None, "x\ny"),
+                                (lambda *a: None, "x\ry"), (lambda *a: None, "x" * 129)):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                require_text_submission(callback, marker=value)
 
     def test_recorder_failures_preserve_before_and_after_dispatch_distinction(self):
         env = self.environment()

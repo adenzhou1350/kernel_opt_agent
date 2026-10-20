@@ -16,6 +16,35 @@ class SandboxFailure(RuntimeError):
     """Infrastructure/budget failure, not a target assertion or syntax error."""
 
 
+def require_text_submission(native_finish, *, marker):
+    """Optional task-output contract, not a change to an agent's native parser.
+
+    A patch benchmark may validly submit no text. Read-only investigations may
+    instead require a conclusion. An empty marker remains a successful shell
+    command, but gets task feedback rather than ending that investigation.
+    This checks presence only, never truth or adequacy of the supplied text.
+    """
+    if (not callable(native_finish) or not isinstance(marker, str) or not marker
+            or marker != marker.strip() or len(marker) > 128 or "\n" in marker or "\r" in marker):
+        raise ValueError("supply a native finish callback and a literal single-line marker")
+
+    def finish(environment, output):
+        lines = output.get("output", "").lstrip().splitlines(keepends=True)
+        if (output.get("returncode") == 0 and lines and lines[0].strip() == marker
+                and not "".join(lines[1:]).strip()):
+            environment.record(f"action-{environment.attempts}-submission-rejected.json", {
+                "reason": "task requires nonempty final text", "shell_returncode": 0,
+                "boundary": "Output presence only; raw action result is retained unchanged."})
+            output["output"] += (
+                "\nTASK_OUTPUT_INCOMPLETE: This command exited 0 but supplied no final text. "
+                "Within the remaining budget, print the marker followed by your honest "
+                "conclusion, executed checks and uncertainty. No extra budget is granted.\n")
+            return
+        native_finish(environment, output)
+
+    return finish
+
+
 def cpu_health_matches(health, image):
     """Shared receipt check, not a new discovery or an execution authority."""
     if not isinstance(health, dict) or not isinstance(health.get("limits"), dict):

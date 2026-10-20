@@ -123,6 +123,25 @@ another execution; do not automatically replay it or fall back to a host shell.
 Successful `finish` raises the upstream submission signal only after the actual
 result is retained. The caller still releases its owned session in `finally`.
 
+For a task requiring a written conclusion, an explicit wrapper is available:
+
+```python
+from scout_agent_sandbox_environment import require_text_submission
+
+finish = require_text_submission(
+    LocalEnvironment._check_finished,
+    marker="COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT",
+)
+```
+
+This is a task contract, not a fix to Mini's native protocol: empty text can be
+valid in patch benchmarks. Here an empty marker consumes its real action and
+returns `TASK_OUTPUT_INCOMPLETE` feedback instead of ending the loop. Raw broker
+output/exit code are retained unchanged; the command still exited0. There is no
+extra request/action allowance, retry or owner-written answer. Nonempty text
+delegates to the original finish callback. Presence is **not** truth, successful
+tests or a qualified no-finding verdict; inspect the actual failures separately.
+
 An additional **scripted, no-model** check exercises non-menu syntax, error
 feedback and a within-session toy edit:
 
@@ -135,7 +154,9 @@ python -B examples/native-agent-loop/check_dynamic.py \
 
 It deliberately runs invalid Python, confirms the error reaches the next
 scripted query, reads the subject, observes the known boundary failure, applies
-a script-specified `/work` edit, observes both checks passing, and submits.
+a script-specified `/work` edit, observes both checks passing, rejects an empty
+submission as task feedback, then submits nonempty text. Seven scripted calls
+use zero model requests. All raw action results remain in the private evidence.
 This demonstrates execution/state mechanics, **not** a model-generated repair,
 autonomous discovery or a budget-matched general-agent benchmark. The existing
 fixed-command example remains literal-only. Neither enables execution in the

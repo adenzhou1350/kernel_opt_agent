@@ -956,3 +956,16 @@ This fixes input-budget admission, not the sandbox's 1 MiB file-write/persistenc
 limit, target execution authority, or automatic access to a full environment.
 This environment preparation is not prospective study enrollment, a defect,
 or evidence that a routing/model policy improves discovery or contribution cost.
+
+A follow-up checked the then-current
+[`ffced26`](https://github.com/pypa/packaging/commit/ffced26d0a30557a0e181dbaca561a0432ddec53)
+instead of reusing the earlier baseline identity. Only the specifier production
+module, its tests and documentation differed. A fresh private install matched all
+23 production files; the original default cohort passed63,239 cases, skipped the
+three `copy.replace` tests requiring Python3.13 and deselected431 property cases.
+The18.69s native test invocation and8,375,194-byte report were retained; explicit
+10MiB accounting and an independent63,242-ID inventory agreed. No source stubs,
+test filtering beyond the upstream default, Python3.13/3.15 qualification or
+model finding is implied. The subsequent bounded model audit and independent
+[oracle-error review](scout_source_inception_pilot_v2_results.md#nonempty-conclusion-unreconciled-oracle-failure-2026-10-21)
+are separate evidence, not another successful whole-project test result.

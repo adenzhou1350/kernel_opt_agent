@@ -866,3 +866,60 @@ capability observation and an output-contract failure, not selector superiority
 or paper readiness. Future matched comparisons need an independently evaluated
 task/output contract shared by the arms, counting incomplete outputs as failures
 without requiring every baseline to become successful through repeated retries.
+
+### Nonempty conclusion, unreconciled oracle failure, 2026-10-21
+
+One further **development** task audited the fresh `pypa/packaging` commit
+[`ffced26`](https://github.com/pypa/packaging/commit/ffced26d0a30557a0e181dbaca561a0432ddec53),
+which adds `Specifier/SpecifierSet.__replace__`. This is not a blinded cohort,
+replacement for either v2 slot, or matched comparison with the earlier projects.
+The owner inspected the changed source/docs/tests first. The task explicitly
+excluded documented unchanged-object aliasing as a supposed bug, and permitted
+a no-finding or incomplete conclusion. It granted no repair/publication authority.
+
+The current commit first passed an authentic unchanged native Linux/Python3.12
+default suite: **63,239 passes, three Python3.13-only skips**, 431 property tests
+default-deselected. Its complete8,375,194-byte JUnit was parsed with an explicit
+10MiB budget and independently inventoried; selected source/import identities
+were unchanged. This was capacity preparation, not model execution, the full
+nox/property/platform matrix or a new defect. The previous commit's baseline was
+not silently relabeled as current evidence.
+
+The model received the original source/docs/tests and used the existing pinned
+Mini agent/LiteLLM/native tool parser plus offline CPU sandbox. The same declared
+eight-query/action,360s decision,80s request,30s command,8,192 output-token,
+98,304 message-byte and60,000 inclusive post-response token bounds applied.
+There were no retries/fallbacks or rescue query. An opt-in task finish wrapper
+now rejects **empty** submissions without granting extra budget or changing the
+native parser. A separate seven-command, zero-model scripted canary checked that
+behavior. Its first launcher failed before sandbox/model execution because of
+an omitted import path; the failure was retained before a fresh corrected run.
+
+The real audit used eight responses and eight commands: **44,952 reported tokens**
+(40,521 input,4,431 output;30,592 cached input is a subset, not an extra charge).
+The recorded decision interval was47.11s; setup, native baseline, transfer,
+release and owner review are additional. Prices and total monetary/owner cost
+remain unknown. All eight containers were removed, protected inputs unchanged
+and the session released. No empty-submission rejection occurred in this real
+attempt, so its nonempty conclusion is not evidence of a causal wrapper benefit.
+
+The generated six-test probe had **five passes and one failure**. Its failing
+assertion expected `Specifier(">=1.0").__replace__(operator="~=")` to raise,
+although the resulting `~=1.0` is a valid compatible-release specifier. The model
+instead retried the *different* invalid `version="1.0.*"` case, then described
+the original failure as transient/misattributed in its final `NO_FINDING` text.
+That related-case success did not reconcile the saved failing assertion.
+
+Independent owner execution in a **new** isolated container retained the exact
+generated probe bytes and reproduced the same5-pass/1-fail result. Two separate
+controls passed: valid compatible-release construction/replacement accepts1.5
+and rejects2.0; wildcard compatible-release forms correctly raise. The complete
+original production package and probe/control input hashes stayed unchanged;
+containers and session were released. No production fix, rewrite of the model
+probe, or new model call was used to rescue the attempt.
+
+Record **no qualified finding, generated-oracle error, final explanation not
+reconciled with native evidence**; do not credit a target bug, completed clean
+audit or proof that the package has no bugs. This supports independent review
+and exact failure-identity checking, not a new scientific method, selector
+superiority, cross-project efficacy, PR conversion or paper readiness.

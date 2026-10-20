@@ -226,6 +226,13 @@ commands can end with `; echo` or a pipeline and report exit zero after failed
 tests. Neither that shell status nor the model's submission is a test verdict.
 Review generated sources/tests and rerun identical test bytes on both source
 arms with the existing verifier; preserve structured outcomes and input hashes.
+An optional [nonempty submission wrapper](../examples/native-agent-loop/README.md#optional-non-menu-cpu-command-interface)
+addresses output presence only. After a failed generated probe, executing a
+different related case does not establish recovery of the original failure.
+Match the traceback to its actual source/assertion and independently rerun the
+unchanged failing probe before accepting a recovery claim. The
+[fresh packaging audit](references/scout_source_inception_pilot_v2_results.md#nonempty-conclusion-unreconciled-oracle-failure-2026-10-21)
+retains a concrete counterexample; no automatic semantic grader was added.
 
 For an already reviewed `agent-sandbox` installation, an owner can inject its
 existing `call(action, arguments)` client into the delivery library:
