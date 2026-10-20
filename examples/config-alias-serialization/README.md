@@ -108,5 +108,23 @@ Preserving canonical class metadata and passing pickle must not replace the
 existing alias/persistence contract. These checks used the fixed CPU wheel,
 not current-main, ModelScope, full CI or a new prospective research sample.
 
+### Alias subclasses also need consumer qualification
+
+A separate offline probe in the same environment found that both DeepSeek
+aliases resolve to Transformers' native `DeepseekV3Config`, not a vLLM-specific
+config class. That class is recognized by both `TOKENIZER_MAPPING` and
+`MODEL_FOR_CAUSAL_LM_MAPPING`; a differently named, unregistered subclass is
+recognized by neither. The other two alias families' original custom classes
+already have neither mapping, so those are not newly lost mappings.
+
+[Transformers 5.19's auto factory](https://github.com/huggingface/transformers/blob/c4c4605f961877852b89b97478536bb3a26b6fd1/src/transformers/models/auto/auto_factory.py)
+checks the concrete config class, and its lazy fallback matches registered class
+names rather than arbitrary subclass inheritance. Therefore, separate stable
+alias classes are not a drop-in fix merely because `isinstance` and pickle work.
+Any such design must independently preserve or explicitly review tokenizer/model
+registration and the existing `hf_overrides` behavior. The probe installed no
+alias classes, registered no mappings and loaded no tokenizer/model. It does not
+prove that all wrapper designs fail or qualify an actual serving regression.
+
 This is an exposed operational candidate and reusable reproduction, not a new
 prospective research sample or evidence of Scout efficacy/PR conversion.
