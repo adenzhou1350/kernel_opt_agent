@@ -765,6 +765,15 @@ def continuation_request(packet, snapshot, analysis, *, spec=None):
     return None
 
 
+def _requested_path_hint(path, request):
+    """Literal observed filename/path only; not a definition or receiver proof."""
+    return bool(request and re.search(
+        rf"(?<![a-z0-9_./-])(?:{re.escape(path.lower())}|"
+        rf"{re.escape(path.rsplit('/', 1)[-1].lower())})(?![a-z0-9_./-])",
+        request[:2000].lower(),
+    ))
+
+
 def relevant_paths(snapshot, hints, exclude=(), priority_hints="", deprioritize=(), topic_hints="", *, spec=None):
     """Rank *observed tree members*; never interpret hints as a fetch target."""
     hints = hints[:16000]
@@ -817,12 +826,7 @@ def relevant_paths(snapshot, hints, exclude=(), priority_hints="", deprioritize=
         if score:
             # Explicit next-evidence filenames precede incidental report/log
             # mentions. Prose and partial/foreign paths keep the old ranking.
-            requested = bool(
-                priority_hints and re.search(
-                    rf"(?<![a-z0-9_./-])(?:{re.escape(path.lower())}|{re.escape(name)})"
-                    r"(?![a-z0-9_./-])", priority_hints,
-                )
-            )
+            requested = _requested_path_hint(path, priority_hints)
             # A weak shared basename is not a backend identity. Break equal
             # lexical scores using explicit, unopposed CPU/GPU report terms
             # before alphabetical order. Never exclude a path or override an
@@ -1844,6 +1848,17 @@ class ResearchProducer:
             code_lookup = getattr(self.context, "code_search_paths", None)
             request_text = analysis_value.get("next_check", "")
             symbols = requested_code_search_symbols(request_text)
+            literal_targets = [p for p in paths if _requested_path_hint(p, request_text)]
+            literal_target = (
+                literal_targets[0] if len(literal_targets) == 1
+                and not (test_request and literal_targets[0] == test_request["path"])
+                else None
+            )
+            if literal_target is not None:
+                # An explicit eligible file must not be replaced by global
+                # matches for a generic symbol such as Rust fn resolve.
+                # Ambiguous basenames keep the existing search fallback.
+                paths = [literal_target] + [p for p in paths if p != literal_target]
             explicit_references = bool(symbols) and all(
                 kind == "references"
                 for kind in re.findall(
@@ -1866,6 +1881,7 @@ class ResearchProducer:
                 and definition_request is None
                 and not definition_pair
                 and cached_target is None
+                and literal_target is None
             ):
                 search_symbol = (
                     cached_reference_binding_symbol(

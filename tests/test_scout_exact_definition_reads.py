@@ -40,6 +40,9 @@ class ExactDefinitionReadTests(unittest.TestCase):
         observed_text="current_leaves = self._session_leaves[session_id]",
         raw=RAW,
         code_search=False,
+        target_path=PATH,
+        other_text="unrelated fallback source TreeComponent",
+        other_path=OTHER,
     ):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -62,19 +65,19 @@ class ExactDefinitionReadTests(unittest.TestCase):
             )
             ctx = Context()
             ctx.cached_source_text = lambda *args: raw
-            ctx.code_search_paths = lambda *args, **kwargs: [OTHER]
+            ctx.code_search_paths = lambda *args, **kwargs: [other_path]
             calls = []
 
             def snapshot(*args, **kwargs):
                 return {
                     "commit": ctx.revision,
-                    "files": [PATH, OTHER, "tests/test_context.py"],
-                    "blobs": {PATH: hashlib.sha1(b"blob " + str(len(raw.encode())).encode() + b"\0" + raw.encode()).hexdigest(), OTHER: "c" * 40},
+                    "files": [target_path, other_path, "tests/test_context.py"],
+                    "blobs": {target_path: hashlib.sha1(b"blob " + str(len(raw.encode())).encode() + b"\0" + raw.encode()).hexdigest(), other_path: "c" * 40},
                 }
 
             def source(repo, commit, path, **kwargs):
                 calls.append(path)
-                text = raw if path == PATH else "unrelated fallback source TreeComponent"
+                text = raw if path == target_path else other_text
                 result = {
                     "url": f"https://raw.githubusercontent.com/{repo}/{commit}/{path}",
                     "text": text,
@@ -82,7 +85,7 @@ class ExactDefinitionReadTests(unittest.TestCase):
                 target = requested_function_window(
                     raw.splitlines(), kwargs.get("request_hints")
                 )
-                if path == PATH and target is not None:
+                if path == target_path and target is not None:
                     result["text"] = "\n".join(
                         raw.splitlines()[target["start_line"] - 1:target["end_line"]]
                     )
@@ -105,7 +108,7 @@ class ExactDefinitionReadTests(unittest.TestCase):
                     spec,
                     [
                         {
-                            "url": f"https://raw.githubusercontent.com/{REPO}/{ctx.revision}/{PATH}",
+                            "url": f"https://raw.githubusercontent.com/{REPO}/{ctx.revision}/{target_path}",
                             "text": observed_text,
                         }
                     ],
@@ -136,7 +139,7 @@ class ExactDefinitionReadTests(unittest.TestCase):
                     patch.object(ctx, "duplicate_sources", return_value=[]),
                     patch.object(
                         research, "relevant_paths",
-                        return_value=[PATH, OTHER] if ranked_paths is None else ranked_paths,
+                        return_value=[target_path, other_path] if ranked_paths is None else ranked_paths,
                     ),
                     patch.object(
                         research, "continuation_request", return_value=continuation
@@ -208,6 +211,82 @@ class ExactDefinitionReadTests(unittest.TestCase):
         self.assertNotIn("code_search_requests", progress)
         self.assertTrue(packet["sources"][-1]["requested_definition_complete"])
         self.assertNotIn("unrelated fallback source", scout.dumps(packet))
+
+    def test_literal_unqualified_definition_file_precedes_global_symbol_search(self):
+        for filename in (PATH, "context.py"):
+            with self.subTest(filename=filename):
+                calls, _, progress = self.run_followup(
+                    request=f"definition(resolve) in {filename}",
+                    raw="def resolve():\n    return []\n", code_search=True,
+                    other_text="unrelated fallback source resolve SamplingMask",
+                )
+                self.assertEqual(calls, [PATH])
+                self.assertNotIn("code_search_requests", progress)
+
+    def test_rust_definition_filename_keeps_the_requested_file_in_read_budget(self):
+        path = "rust/src/client/protocol/sampling_mask.rs"
+        for request in (
+            "definition(resolve) in sampling_mask.rs; references(SamplingMask)",
+            f"Read the complete {path}, especially resolve; references(SamplingMask)",
+        ):
+            with self.subTest(request=request):
+                calls, packet, progress = self.run_followup(
+                    request=request,
+                    raw="impl SamplingMask {\n    pub fn resolve(&self) {}\n}\n",
+                    target_path=path, code_search=True,
+                    other_text="unrelated fallback source resolve SamplingMask",
+                )
+                self.assertEqual(calls[0], path)
+                self.assertLessEqual(len(calls), 2)
+                self.assertNotIn("code_search_requests", progress)
+                self.assertTrue(any(path in source["url"] for source in packet["sources"]))
+
+    def test_foreign_partial_paths_keep_search(self):
+        for request in (
+            "definition(resolve) in foreign/context.py",
+            "references(TreeComponent) in foreign/context.py",
+        ):
+            with self.subTest(request=request):
+                calls, _, progress = self.run_followup(
+                    request=request, code_search=True,
+                    raw="def resolve():\n    return []\n",
+                    other_text="unrelated fallback source resolve TreeComponent",
+                )
+                self.assertEqual(calls, [OTHER])
+                self.assertEqual(progress["code_search_requests"], 1)
+
+    def test_reference_request_with_explicit_filename_keeps_that_read_first(self):
+        calls, _, progress = self.run_followup(
+            request="Read context.py and references(TreeComponent)", code_search=True,
+        )
+        self.assertEqual(calls[0], PATH)
+        self.assertLessEqual(len(calls), 2)
+        self.assertNotIn("code_search_requests", progress)
+
+    def test_literal_path_hint_does_not_guess_a_foreign_or_partial_basename(self):
+        path = "rust/src/client/protocol/sampling_mask.rs"
+        other = "aaa/config.py"
+        snapshot = {"files": [other, path]}
+
+        def first(request):
+            return research.relevant_paths(snapshot, f"{other} {path}", priority_hints=request)[0]
+
+        for request in ("sampling_mask.rs", f"definition(resolve) in {path}"):
+            self.assertEqual(first(request), path)
+        for request in ("other/sampling_mask.rs", "sampling_mask.rs_extra", "prefixsampling_mask.rs"):
+            self.assertEqual(first(f"{request}; read {other}"), other)
+
+    def test_ambiguous_basename_keeps_search_but_exact_path_precedes_it(self):
+        other = "other/context.py"
+        for filename, expected, searched in (("context.py", [other], True), (PATH, [PATH], False)):
+            with self.subTest(filename=filename):
+                calls, _, progress = self.run_followup(
+                    request=f"definition(resolve) in {filename}",
+                    raw="def resolve():\n    return []\n", code_search=True,
+                    other_path=other, other_text="unrelated fallback source resolve",
+                )
+                self.assertEqual(calls, expected)
+                self.assertEqual("code_search_requests" in progress, searched)
 
     def test_ineligible_cached_target_does_not_suppress_code_search(self):
         calls, _, progress = self.run_followup(

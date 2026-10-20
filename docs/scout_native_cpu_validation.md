@@ -518,6 +518,17 @@ and its cost separately; never rewrite the answer, loosen quote matching or
 reclassify the old row as a valid discovery. JSON decoding is not permission to
 change regex backslashes or other source characters.
 
+An explicit next-evidence filename that uniquely matches an eligible current
+tree member precedes the fallback global symbol lookup. Otherwise generic names
+such as Rust `resolve` can return an unrelated Python match and silently consume
+the limited read slots. Ambiguous basenames, foreign/partial paths and reserved
+test reads keep the existing fallback; no new source slot or fetch authority is
+added. This routing preference is not a parsed-definition or complete-body claim:
+the observed Rust file itself has two `fn resolve` literals, so its unique-anchor
+helper still abstains. Keep the bounded window and ambiguity, not an invented
+receiver or whole-file coverage. Replaying cached selection does not rehabilitate
+old failed responses or measure future token/PR savings.
+
 New failed calls retain sanitized final provider usage in SQLite without an
 accepted analysis; failure verdicts and receipt result contracts stay unchanged.
 The lifetime funnel reports unknown-usage and terminal-unknown counts explicitly.
