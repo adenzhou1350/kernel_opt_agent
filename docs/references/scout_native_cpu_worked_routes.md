@@ -544,6 +544,30 @@ deep-temp-root setup. The reusable
 [socket-path lesson](../../knowledge/lessons/unix-socket-temporary-path-budget.json)
 states applicability and exceptions.
 
+At [later client source `3eb3145`](https://github.com/vllm-project/vllm/tree/3eb3145bd0f56e15667a3783044aa5720061f277/rust/src/engine-core-client),
+the same crate selection passed **140/140, zero skipped**, including the four
+new JSON/structural-tag nesting and malformed-tag cases. All old136 case IDs
+were present. This is a new pinned-source result, not retrospective extension
+of the old baseline. The533 tracked files were independently rehashed after
+execution; no source/test edits were made. Rust/Cargo1.95 and the unchanged
+Cargo.lock/Python fixture reused private dependency content. A separate source
+root and copied/reflinked build cache kept the historical executable unchanged;
+the changed crate was recompiled in its new target directory. Do not hard-link
+mutable build output over retained historical artifacts.
+
+Two preparation failures remain failures: an initial selected-blob fetch lacked
+the promisor/no-negotiation flags; a first native wrapper supplied533 paths to
+`scout_native_run`'s explicit64-anchor cap and stopped before tests. The corrected
+wrapper kept all533-file pre/post verification while supplying bounded capture
+anchors. Neither failure was a target defect, native pass or model discovery.
+
+The complete source and original
+`structured_outputs_rejects_missing_constraint` test also close an excerpt-only
+empty-constraint allegation at this pin: `TryFrom` returns an error before
+`validate()` when no constraint is present. A missing excerpt is not missing
+validation. Future changes or bypassing callers require a fresh witness; this
+client result does not establish Python EngineCore or HTTP validation parity.
+
 ### CPU transport logic before RDMA qualification
 
 The upstream [NIXL transport unit file](https://github.com/vllm-project/vllm/blob/4bd75e952a9f423742223c97c8cc9fc6db362950/tests/v1/kv_offload/tiering/p2p/test_data_transport.py)
