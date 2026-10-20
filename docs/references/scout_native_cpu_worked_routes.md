@@ -911,3 +911,34 @@ not interchangeable complete process-tree costs. Missing readings remain null,
 not zero. Compilation inside the command contributes; model calls, preparation
 outside it and human effort are separate. These observations do not establish a
 priced, budget-matched comparison. Historical reports stay unchanged.
+
+## Large default suites: native success is not report-budget admission
+
+An additional capability check used
+[`pypa/packaging` at fc61337](https://github.com/pypa/packaging/tree/fc613377731e5211ab6e08e6fd6163f09ae67ce8).
+Its contribution/test instructions were read first. The deterministic raw-Git
+bundle and thirteen wheel artifacts were verified; mirror-delivered wheels
+matched PyPI publisher hashes. Standard offline uv/flit installation into a
+fresh private Python3.12 venv produced `packaging 26.4.dev0`; all23 installed
+production files matched the original source bytes. No stub/version overlay or
+modification of the pre-existing environment was used.
+
+The original default `python -B -m pytest -q` selection, with JUnit output added,
+reported63,232 passes and one Python-version skip (`copy.replace` needs3.13).
+Its431 opt-in property tests were deselected by the project's own configuration.
+The pytest invocation took18.78 wall seconds on the bounded native route;
+setup, acquisition and owner review are separate costs. Original tracked bytes
+stayed unchanged and no owned process-group cleanup was required. This is one
+Linux/Python3.12 run, not the nox/platform/property/coverage matrix or a PR result.
+The trusted native route had two-CPU affinity,6GiB address space and a180s test
+timeout; it was not the512MiB/60s default sandbox or OS/network isolation.
+
+The untouched JUnit is8,373,718 bytes. A separate owner audit checked its raw
+digest, suite totals,63,233 unique complete IDs and the one recorded skip.
+The unchanged automatic reader still rejects those same bytes with
+`log exceeds 2 MiB`. Do not claim an automatic validation pass, silently raise
+the default budget, truncate/rewrite the XML, or rerun the target merely to
+repeat that known reader rejection. Preserve the original report and route any
+future larger-report support through an explicit bounded design and tests.
+This environment preparation is not prospective study enrollment, a defect,
+or evidence that a routing/model policy improves discovery or contribution cost.
