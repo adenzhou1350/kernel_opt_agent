@@ -1,7 +1,7 @@
 {
   "id": "unix-socket-temporary-path-budget",
   "title": "Budget Unix socket paths before redirecting temporary fixtures",
-  "applies_when": "A native client, Python/ZeroMQ model engine or IPC test builds pathname Unix sockets below a temporary directory, especially after task isolation redirects TMPDIR into a deep workspace tree; failures may mention SUN_LEN, ipc path length, or unexpectedly precede sampling or the expected timeout.",
+  "applies_when": "A native client, Python/ZeroMQ model engine, multiprocessing forkserver or IPC test builds pathname Unix sockets below a temporary directory, especially after task isolation redirects TMPDIR into a deep workspace tree; failures may mention SUN_LEN, AF_UNIX path too long, ipc path length, or unexpectedly precede sampling or the expected timeout.",
   "lesson": "Inspect the actual encoded filesystem pathname, including generated directories, the socket filename and terminating NUL. On Linux the sockaddr_un pathname array is 108 bytes; that is not a universal Unix limit. A valid writable directory can still produce an overlong socket address. Keep artifacts, Cargo targets and dependency caches on the task volume, but use a short, unique, owner-private temporary root for socket fixtures. Preserve the original failure, then rerun the same suite and compiled binary with only the temporary-root environment changed, retaining ordinary controls and checking process cleanup. A timeout-message assertion can be a secondary symptom of an earlier bind failure, not a separate timeout regression.",
   "avoid_when": "Do not truncate a user socket address, switch transport, drop failing cases or shorten a path in a test intentionally exercising length limits. A private directory must still have appropriate ownership and permissions; a short name is not isolation. Abstract addresses and other Unix platforms have different semantics. This precondition does not prove support for arbitrary production paths, full engine/GPU correctness, performance or improved discovery yield. A remaining lock file alone is not evidence of a live process.",
   "evidence": [
@@ -20,6 +20,14 @@
     {
       "url": "https://github.com/vllm-project/vllm/blob/8407bc0bb6b0061dacb731ae3cc54b6035f112b3/vllm/utils/network_utils.py",
       "note": "get_open_zmq_ipc_path appends a UUID to VLLM_RPC_BASE_PATH. A CPU engine startup may therefore exhaust the pathname budget even when weights, source and the target sampler are valid. Budget the complete generated address; do not classify a bind failure as a sampling regression or switch the transport to hide it."
+    },
+    {
+      "url": "https://github.com/python/cpython/blob/v3.12.13/Lib/multiprocessing/connection.py",
+      "note": "In this CPython source, arbitrary_address('AF_UNIX') constructs a listener pathname under util.get_temp_dir(). A filesystem temporary-path budget can therefore affect multiprocessing, not just explicitly configured model-engine IPC. Inspect the installed build; this tag is mechanism evidence, not a claim that a distribution reporting Python3.12.3 has identical implementation bytes."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/pull/2297#issuecomment-6302549719",
+      "note": "The public refresh note records a selected native HTTP-suite forkserver path-length failure, followed by185 passes with unchanged source/tests and a short private TMPDIR. The fresh capture also changed its task root/HOME, so this is a scoped successful execution route, not an exclusively TMPDIR-controlled causal measurement, whole-project qualification or upstream library defect."
     }
   ],
   "status": "validated"

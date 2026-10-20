@@ -544,6 +544,21 @@ deep-temp-root setup. The reusable
 [socket-path lesson](../../knowledge/lessons/unix-socket-temporary-path-budget.json)
 states applicability and exceptions.
 
+The same precondition matters outside model engines. During the
+[fsspec HTTP refresh](https://github.com/fsspec/filesystem_spec/pull/2297#issuecomment-6302549719),
+one Linux/Python3.12 case failed in `forkserver.ensure_running` at an AF_UNIX
+listener bind, before its intended assertions. The other184 cases passed.
+The same source/tests under a fresh task root with short, uniquely owned TMPDIR
+passed all185 cases, including the original `test_processes[forkserver]`.
+The interpreter and tracked source bytes stayed fixed; capture/HOME paths also
+changed, so do not call this an exclusively TMPDIR-matched experiment. Keep both
+captures and the original failure, not a skipped-case pass or target code fix.
+Only the newly created short temporary directory was cleaned after the owned
+processes exited. A remaining event-loop deprecation warning was retained; this
+does not qualify all backends or assert warning-free teardown. Check path budgets
+before redirecting IPC-capable suites into a deep workspace, rather than learning
+this again after another complete test run.
+
 At [later client source `3eb3145`](https://github.com/vllm-project/vllm/tree/3eb3145bd0f56e15667a3783044aa5720061f277/rust/src/engine-core-client),
 the same crate selection passed **140/140, zero skipped**, including the four
 new JSON/structural-tag nesting and malformed-tag cases. All old136 case IDs
