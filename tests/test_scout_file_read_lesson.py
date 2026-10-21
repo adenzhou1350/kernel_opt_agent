@@ -38,6 +38,15 @@ class FileReadLessonTests(unittest.TestCase):
             "cutlass-array-vector-slice-count",
         )
 
+    def test_forward_only_delimiter_advice_is_distinct_and_complete(self):
+        result = lesson_suggestions("HTTP streaming readline seek delimiter lookahead")
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "forward-stream-delimiter-lookahead")
+        self.assertIn("real transport", card["lesson"])
+        self.assertIn("submitted PR", card["avoid_when"])
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

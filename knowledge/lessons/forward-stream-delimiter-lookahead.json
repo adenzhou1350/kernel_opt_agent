@@ -1,0 +1,26 @@
+{
+  "id": "forward-stream-delimiter-lookahead",
+  "title": "Forward-only HTTP streams need retained delimiter lookahead",
+  "applies_when": "A file-like HTTP wrapper inherits a delimiter reader that reads chunks and seeks backward after finding a newline, although the underlying response is forward-only.",
+  "lesson": "Trace both how the delimiter is found and where over-read bytes go. A successful HTTP transfer and passing readlines() do not establish that readline() or iteration works: fsspec's bulk method reads to EOF, but its inherited per-line path seeks backward and fails on streaming responses. Compare the real transport with a BytesIO oracle, with forced streaming, unknown-size responses and seekable controls. Retain the unread suffix in the stream's read path and adjust the caller-visible position; later read/readinto/line calls must consume that suffix in order. Keep ordinary seekable behavior unchanged and continue rejecting user seeks on a forward-only response. Test delimiters spanning chunks, empty input, EOF, mixed reads, close and buffered controls before calling the change ready.",
+  "avoid_when": "First establish that the wrapper promises the affected file-like operation; not every raw stream supports every IOBase method. Do not treat a separate read(None) normalization or optional readline(size) change as proof of this route. Do not replace real I/O with a seek-capable memory fake, enable arbitrary seeking or discard lookahead. Evaluate the overhead of a byte-by-byte fallback instead of assuming it is free, and do not assume extra buffering is fast without measurement. The evidence below is scoped native correctness and a submitted PR, not maintainer acceptance, full downstream/browser/CI coverage, performance or measured Scout yield/cost improvement.",
+  "evidence": [
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/blob/9704dd2a772c1f3380152ad692422660eda4b20e/fsspec/spec.py",
+      "note": "readuntil rewinds an over-read chunk with seek; readline and iteration use that path, while readlines uses a whole-file read. A passing bulk-read control cannot establish per-line behavior."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/issues/2349",
+      "note": "Independent complete-source Windows3.14/Linux3.12 loopback checks each reproduce 12 streaming line/iteration failures and retain 12 bulk/seekable controls. This is not a failure introduced by the separate read(None) PR."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/filesystem_spec/blob/bddbbf64163d6ff17a7ad168936a6f6f28e748a9/fsspec/implementations/tests/test_http_stream.py",
+      "note": "Exact 58-case native witness covers both HTTP backends, delimiter boundaries, mixed reads, position, EOF and close. On Linux the same cases change from 37 failed/21 passed on unchanged master to 58 passed, with no skips; all original passing controls remain passing."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/pull/2350",
+      "note": "Submitted Ready at bddbbf6; selected native suites report Linux747pass/22skip/1existing-xfail and Windows623pass/136skip/1existing-xfail. Applicable Ruff checks pass. Warnings and optional/platform gaps are disclosed, including an unchanged-parent Windows client-session warning. No merge, full CI or performance claim."
+    }
+  ],
+  "status": "validated"
+}
