@@ -560,6 +560,24 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertIn("supported caller", card["lesson"])
         self.assertIn("External or dynamic callers", card["avoid_when"])
 
+    def test_config_getter_advice_keeps_native_subtype_and_metadata_scope(self):
+        result = lesson_suggestions(
+            "mrope_num_dims thinker get_text_config synthetic section",
+            source_urls=[
+                "https://raw.githubusercontent.com/vllm-project/vllm/"
+                "1a74cc7bb24e8115c1cf7d28995bc0643d1bed90/vllm/transformers_utils/config.py"
+            ],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "consumer-contract-before-regression")
+        self.assertIn("real subtype getter", card["lesson"])
+        self.assertIn("generic base fixtures", card["lesson"])
+        self.assertIn("Metadata-only section stresses", card["avoid_when"])
+        self.assertTrue(result["source_path_match"])
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertLessEqual(len(json.dumps(card, ensure_ascii=False).encode()), MAX_CARD_BYTES)
+        self.assertNotIn("qualified", result)
+
     def test_reload_scale_advice_distinguishes_restore_and_derived_tensors(self):
         result = lesson_suggestions(
             "NVFP4 weight reload kernel config block scale storage identity",
