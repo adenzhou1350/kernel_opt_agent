@@ -582,6 +582,18 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertIn("meta/symbolic", card["avoid_when"])
         self.assertNotIn("qualified", result)
 
+    def test_real_transport_url_counterexample_keeps_its_scope_within_budget(self):
+        result = lesson_suggestions("wrapper encode_url omission upload percent Unicode")
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "native-operation-inherited-guards")
+        self.assertIn("real client", card["lesson"])
+        self.assertIn("server's target and body", card["lesson"])
+        self.assertIn("signed URLs or browser/JS", card["avoid_when"])
+        self.assertTrue(any("http_upload_url_checks.py" in e["url"] for e in card["evidence"]))
+        self.assertLessEqual(len(json.dumps(card, ensure_ascii=False).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_sharding_advice_binds_the_registered_operator_not_its_neighbor(self):
         result = lesson_suggestions(
             "custom_sharding output count fused four tensors",
