@@ -373,6 +373,12 @@ def publication_context(root, repo, sources):
     """Read <=24 terminal rows and <=24 owner links; never rewrite queue state."""
     path = Path(root).resolve() / "delivery" / "delivery.sqlite"
     wanted = source_paths(sources, repo)
+
+    def visible_paths(paths):
+        # A multi-file PR must not hide the very path that made it relevant
+        # behind two alphabetically earlier, unrelated files.
+        return sorted(paths, key=lambda path: (path not in wanted, path))[:2]
+
     rows = owner_publication_rows(root, repo)
     try:
         if path.is_file():
@@ -410,7 +416,7 @@ def publication_context(root, repo, sources):
             index = indexes[key]
             matched, item = matches[index]
             path_sets[key].update(paths)
-            item["source_paths"] = sorted(path_sets[key])[:2]
+            item["source_paths"] = visible_paths(path_sets[key])
             matches[index] = (matched or bool(paths & wanted), item)
             continue
         indexes[key] = len(matches)
@@ -421,7 +427,7 @@ def publication_context(root, repo, sources):
                 {
                     "url": url,
                     "prior_hypothesis": title[:200],
-                    "source_paths": sorted(paths)[:2],
+                    "source_paths": visible_paths(paths),
                 },
             )
         )

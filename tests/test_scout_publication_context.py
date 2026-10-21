@@ -559,6 +559,20 @@ class PublicationContextTests(unittest.TestCase):
         self.assertIn("Never reject or publish", context["caution"])
         self.assertEqual(self.path.read_bytes(), before)
 
+    def test_merged_publication_keeps_the_matching_path_inside_display_cap(self):
+        self.initialize()
+        url = f"https://github.com/{self.repo}/pull/1"
+        self.add(1, url)
+        others = [{"url": self.source["url"].replace("subject.py", name)}
+                  for name in ("a.py", "b.py")]
+        self.add(2, url, payload=json.dumps({"packet": {"sources": others}}))
+        before = self.path.read_bytes()
+        context = self.read()
+        self.assertEqual(len(context["items"]), 1)
+        self.assertEqual(context["items"][0]["source_paths"],
+                         ["src/subject.py", "src/a.py"])
+        self.assertEqual(self.path.read_bytes(), before)
+
     def test_invalid_cross_repo_and_nonterminal_records_do_not_enter_context(self):
         self.initialize()
         self.add(1, "https://github.com/other/project/pull/1")
@@ -669,6 +683,28 @@ class SourceOnlyPublicationTests(unittest.TestCase):
         )
         self.assertFalse((self.root / "delivery").exists())
         self.assertEqual(self.path.read_bytes(), before)
+
+    def test_source_only_matching_paths_precede_unrelated_paths_with_same_cap(self):
+        notes = [{**self.note, "source_url": self.source["url"].replace("subject.py", name)}
+                 for name in ("a.py", "b.py", "subject.py", "z.py")]
+        self.write(notes)
+        before = self.path.read_bytes()
+        context = self.read()
+        self.assertEqual(context["items"][0]["source_paths"],
+                         ["src/subject.py", "src/a.py"])
+        context = memory.publication_context(self.root, self.repo, [
+            {"url": self.source["url"].replace("subject.py", name)}
+            for name in ("subject.py", "z.py")])
+        self.assertEqual(context["items"][0]["source_paths"],
+                         ["src/subject.py", "src/z.py"])
+        self.assertEqual(self.path.read_bytes(), before)
+        self.assertFalse((self.root / "delivery").exists())
+
+    def test_source_only_no_matching_path_keeps_stable_lexical_fallback(self):
+        self.write([{**self.note, "source_url": self.source["url"].replace("subject.py", name)}
+                    for name in ("c.py", "a.py", "b.py")])
+        self.assertEqual(self.read()["items"][0]["source_paths"],
+                         ["src/a.py", "src/b.py"])
 
     def test_independent_note_survives_corrupt_queue(self):
         self.write([self.note])
