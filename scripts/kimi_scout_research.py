@@ -29,6 +29,7 @@ from scout_requested_definition import (
     cached_definition_tail_request,
     cached_qualified_definition_path,
     cached_reference_binding_symbol,
+    issue_definition_request,
     requested_code_search_symbols,
 )
 from scout_generated_context import contract_requests
@@ -1317,6 +1318,36 @@ class ResearchProducer:
         # The context layer bounds mutable-ref refreshes with SNAPSHOT_TTL.
         return self.context.snapshot(spec["repo"], spec.get("ref", "main"))
 
+    def issue_source(self, spec, snapshot, matches, hints):
+        """Disambiguate two same-name Python files with a literal declaration.
+
+        Keep one emitted source and existing excerpt limits. Only one extra
+        pinned read is possible; missing/ambiguous targets retain the first
+        source, and access/transport failures remain failures, not no-match.
+        """
+        path = matches[0]
+        request = issue_definition_request(hints) if path.endswith(".py") else None
+        options = {"request_hints": request} if request else {}
+        first = self.context.source(spec["repo"], snapshot["commit"], path, hints=hints, **options)
+        if not request or first.get("requested_definition"):
+            return first
+        # An explicit observed path must not be displaced by a type-name hint.
+        if any(candidate in hints for candidate in matches):
+            return first
+        basename = path.rsplit("/", 1)[-1]
+        alternatives = [candidate for candidate in matches[1:]
+                        if candidate.rsplit("/", 1)[-1] == basename]
+        if len(alternatives) != 1 or self.stopped():
+            return first
+        try:
+            other = self.context.source(spec["repo"], snapshot["commit"], alternatives[0],
+                                        hints=hints, request_hints=request)
+        except ValueError as exc:
+            if str(exc) not in OPTIONAL_SOURCE_UNAVAILABLE:
+                raise
+            return first
+        return other if other.get("requested_definition") else first
+
     def issue(self, spec, progress):
         if not spec.get("issue_intake", True):
             return False
@@ -1374,12 +1405,7 @@ class ResearchProducer:
             if matches:
                 try:
                     sources.append(
-                        self.context.source(
-                            spec["repo"],
-                            snapshot["commit"],
-                            matches[0],
-                            hints=sources[0]["text"],
-                        )
+                        self.issue_source(spec, snapshot, matches, sources[0]["text"])
                     )
                 except ValueError as exc:
                     if str(exc) not in OPTIONAL_SOURCE_UNAVAILABLE:

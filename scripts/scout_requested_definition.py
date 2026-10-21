@@ -14,6 +14,21 @@ import tokenize
 from urllib.parse import unquote, urlsplit
 
 
+def issue_definition_request(text):
+    """One literal inline Class.method is a lexical target, not an instruction.
+
+    No prose-name guessing, URL following or multi-owner selection. The source
+    reader must still establish the declaration in a pinned admitted tree file.
+    """
+    if not isinstance(text, str):
+        return None
+    targets = set(re.findall(
+        r"(?<!`)`([A-Z][A-Za-z0-9_]{2,127}\.[a-z_][A-Za-z0-9_]{2,127})`(?!`)",
+        text[:2000],
+    ))
+    return f"definition({next(iter(targets))})" if len(targets) == 1 else None
+
+
 def prefer_supplied_snapshot_source(sources, selected, repo, commit):
     """Prefer an already-supplied current-pin window of the selected exact path.
 

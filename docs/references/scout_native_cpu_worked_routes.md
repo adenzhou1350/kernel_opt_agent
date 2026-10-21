@@ -178,6 +178,27 @@ old bytes or ranges, and does not fetch missing pins. Without a supplied
 same-path current pin, revision-drift abstention remains in force. A successful
 lookup is source evidence, not proof of a defect or of lower discovery cost.
 
+### Same-basename issue source selection
+
+Issue triage can encounter two admitted Python files with the same basename.
+If the first lacks an issue's single literal inline `Class.method`, the producer
+may read the one same-basename alternative and use its AST-selected declaration.
+It still emits one source with the existing 120-line/text budgets. Explicit
+observed paths, multiple siblings, ambiguous declarations and missing targets
+retain the original selection; access failures are not no-match evidence.
+No code search, new path, model retry, suppression or execution is authorized.
+
+The retained report [vLLM #62768](https://github.com/vllm-project/vllm/issues/62768)
+names `RoutedExperts.load_weights`. At `c835207fccae327531d7d64d2d6fe719a601477f`,
+the old rank selected `vllm/distributed/aux_output_connector/routed_experts.py`,
+which lacks that declaration. A raw-blob replay instead selects the complete
+102-line method in
+[`vllm/model_executor/layers/fused_moe/routed_experts.py`](https://github.com/vllm-project/vllm/blob/c835207fccae327531d7d64d2d6fe719a601477f/vllm/model_executor/layers/fused_moe/routed_experts.py#L1004).
+This changes one source read to two and no model calls were made. It is a
+known-report selection control, not a prospective discovery, vLLM test result,
+PR-conversion, saved-token or general cost-benefit measurement. Existing
+author-owned work remains author-owned; the failed original job is not retried.
+
 ### Local pinned packet
 
 Use the local reader when the reviewed commit is already available, rather than

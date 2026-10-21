@@ -12,6 +12,7 @@ sequence, phase gate or method whitelist. Case history is in the
 | --- | --- |
 | May this contribution be submitted? | [Effective contribution rules](#inherited-rules-before-setup) |
 | What source does the lead actually reach? | `kimi_scout_delivery_source.select_leads`; [intake](references/scout_native_cpu_validation_notes.md#owner-only-intake-across-languages) |
+| Does an issue's named method belong to the first same-name file? | [Bounded declaration disambiguation](references/scout_native_cpu_worked_routes.md#same-basename-issue-source-selection); lexical evidence, not a receiver or bug verdict |
 | Prepare a reviewed local-source model packet? | [Pinned packet](#local-pinned-packet) |
 | Were particular code lines in one saved request? | [Request-content diagnostic](#request-content-diagnostic); not semantic recall |
 | Transfer exact committed bytes? | [Source bundle](#commit-exact-source-before-native-validation) |
