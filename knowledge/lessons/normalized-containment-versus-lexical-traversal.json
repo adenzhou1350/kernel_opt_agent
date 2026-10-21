@@ -1,0 +1,22 @@
+{
+  "id": "normalized-containment-versus-lexical-traversal",
+  "title": "Normalized path containment does not guarantee lexical ancestor traversal terminates",
+  "applies_when": "Path routing uses a normalizing containment predicate, then repeatedly splits the original spelling until it equals an expected ancestor.",
+  "lesson": "Check that the containment predicate and traversal compare the same representation, and that the loop has a terminal no-match state. In installer, posixpath.commonpath recognizes './fancy-1.0.0.data/data/file.txt' as beneath 'fancy-1.0.0.data', but lexical split never produces that exact ancestor; splitting eventually yields an empty path forever. A regular member named exactly the .data directory also has no matching parent. Stop on an exhausted path and reuse the existing invalid-layout error rather than assuming containment proves progress. Do not normalize arbitrary caller paths merely to make them accepted. Compare the real public loader and destination with a healthy canonical path; bound a nontermination regression in an owned child process and retain its timeout separately from infrastructure failures.",
+  "avoid_when": "A representation mismatch is not itself a supported-input bug or a reason to broaden a file-format contract. This case justifies prompt rejection of unmatched data paths, not acceptance of every noncanonical wheel member. A standalone commonpath/commonprefix probe does not exercise installer or reproduce a parent-version loop. Validation is scoped to the pinned installer implementation and tested platforms; no universal path/security/performance claim. This was an ordinary owner investigation after a pilot's miss-audit clock expired, not a rescued audit or demonstrated Scout selector advantage. Check current source and existing PR status before proposing another fix.",
+  "evidence": [
+    {
+      "url": "https://github.com/pypa/installer/blob/9b7fd286b85c5091390d4368709c46b35693b28c/src/installer/_core.py#L34-L62",
+      "note": "Original implementation: commonpath-based classification followed by an unconditional lexical split loop. Source explains the mismatch; source inspection alone is not an installation reproduction."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/installer/blob/6507990e1788e504e52acc529f22dbf400b25b60/tests/test_core.py",
+      "note": "Exact proposed-head regressions bound the original helper in child processes and require InvalidWheelSource. On original production source with these same tests, both new cases time out while the prior nine core tests pass."
+    },
+    {
+      "url": "https://github.com/pypa/installer/pull/369",
+      "note": "One-line guard; native Linux and Windows each pass 152 tests, Linux line coverage 100%. At inspected head 6507990, 19 hosted OS/Python matrix checks also succeeded. Open PR, not maintainer acceptance or merge; local lint was not claimed."
+    }
+  ],
+  "status": "validated"
+}

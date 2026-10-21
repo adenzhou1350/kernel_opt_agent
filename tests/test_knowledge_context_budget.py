@@ -12,6 +12,24 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_normalized_path_advice_keeps_rejection_and_study_boundaries(self):
+        result = lesson_suggestions(
+            "commonpath lexical ancestor traversal",
+            source_urls=[
+                "https://raw.githubusercontent.com/pypa/installer/"
+                "9b7fd286b85c5091390d4368709c46b35693b28c/src/installer/_core.py"
+            ],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "normalized-containment-versus-lexical-traversal")
+        self.assertTrue(result["source_path_match"])
+        self.assertIn("terminal no-match state", card["lesson"])
+        self.assertIn("not acceptance", card["avoid_when"])
+        self.assertIn("not a rescued audit", card["avoid_when"])
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_plugin_import_advice_preserves_strict_warning_contract(self):
         result = lesson_suggestions("pytest collection plugin pre-import PytestAssertRewriteWarning")
         card = result["matches"][0]
