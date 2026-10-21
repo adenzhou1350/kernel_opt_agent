@@ -12,6 +12,26 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_hardware_reuse_advice_checks_realized_backend_before_transfer(self):
+        result = lesson_suggestions(
+            "DeepSeek V4.1 Hopper SM100 backend cache format cross architecture",
+            source_urls=[
+                "https://raw.githubusercontent.com/vllm-project/vllm/"
+                "e8e43c6a09e4a5fd047cf02b5923db9b2d88ded9/"
+                "vllm/models/deepseek_v41/nvidia/model.py"
+            ],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "reuse-hardware-evidence-by-scope")
+        self.assertTrue(result["source_path_match"])
+        self.assertIn("realized backend and cache format", card["lesson"])
+        self.assertIn("its own matched baseline", card["lesson"])
+        self.assertIn("does not refute", card["avoid_when"])
+        self.assertIn("architecture-dependent cache/layout", card["avoid_when"])
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_normalized_path_advice_keeps_rejection_and_study_boundaries(self):
         result = lesson_suggestions(
             "commonpath lexical ancestor traversal",
