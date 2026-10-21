@@ -544,6 +544,31 @@ revision/platform, an absence of defects or prospective selector benefit. The
 requires private advisories for vulnerabilities. Ordinary discovery remains
 tool-free and cannot publish reports or execute generated probes on this worker.
 
+The original [codec tests](https://github.com/kjd/idna/blob/9470c2f69353b2e675f101bd840bec46f206676d/tests/test_idna_codec.py)
+and [property tests](https://github.com/kjd/idna/blob/9470c2f69353b2e675f101bd840bec46f206676d/tests/test_idna_properties.py)
+already exercise incremental/one-shot agreement. An additional **nonblind owner
+audit**, not a frozen selector trial, checked 76 string and 27 byte inputs at
+every two-chunk split: finalizing the second chunk versus an empty final call,
+and migrating state to a fresh encoder/decoder. Its 8,952 comparisons found no
+output or accepted/rejected-input discrepancy. Invalid inputs were compared as
+IDNAError outcomes, not exact error messages. Samples include Unicode separators,
+RTL labels, malformed labels and domain-length boundaries; this is not exhaustive
+Unicode or arbitrary multichunk coverage. The reviewed native probe took about
+0.82 seconds, excluding preparation and owner analysis. All41 original files
+remained unchanged and the owned process group was absent after capture.
+
+Keep protocol shape separate from successful state round trips:
+[`IncrementalEncoder.getstate()`](https://docs.python.org/3.12/library/codecs.html#codecs.IncrementalEncoder.getstate)
+must return an integer, while this pinned implementation returns a tuple after
+buffering input or emitting bytes. That is an observed interface discrepancy,
+not yet an independently demonstrated downstream failure: the selected native
+`TextIOWrapper` write/tell and read/tell/seek controls succeeded. Stdlib `idna`
+was only a codec-protocol control, **not** an IDNA2008 semantic oracle. Preserve
+this distinction rather than turning a formal mismatch into an impact claim or
+successful controls into universal compatibility. Reopen the deferred impact
+investigation with a real affected consumer or a maintainer-supported contract
+repair; no PR or model-recall estimate resulted from this audit.
+
 ### Rust client crate with a Python wire fixture
 
 A read-only PATH lookup is not a complete installation inventory. Before a cold
