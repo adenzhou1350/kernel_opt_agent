@@ -502,6 +502,48 @@ dependencies. Before remote execution, inspect
 and the authorized environment; do not silently start local WSL or bypass an
 execution-policy denial. Process capture is not a security sandbox.
 
+### IDNA full suite and explicit coverage data
+
+At [kjd/idna `9470c2f69353b2e675f101bd840bec46f206676d`](https://github.com/kjd/idna/tree/9470c2f69353b2e675f101bd840bec46f206676d),
+preserve the full raw tree and install the original
+[hashed test lock](https://github.com/kjd/idna/blob/9470c2f69353b2e675f101bd840bec46f206676d/.github/requirements/test.txt)
+into a task-private Python3.12 environment. A separately reviewed flit_core3.11.0
+build satisfies the project's backend constraint. All11 tracked package files in
+the wheel matched raw Git bytes; all41 tracked source files were unchanged after
+the full suite. Do not replace the subject with an installed same-version package.
+
+The1.46MiB `tests/test_idna_uts46.py` exceeds the default CPU sandbox's single-file
+limit. This check used an authorized, reviewed native worker with two-CPU affinity,
+3GiB address-space and bounded time/output, **not** that sandbox or network
+isolation. It did not modify the broker, truncate conformance data or authorize
+arbitrary model-generated code. A session-start observation hook checked actual
+source/dependency imports after pytest registration; assertions/config were kept.
+
+The original full `coverage run -m pytest` command collected/reported6442 unique
+cases: **6441 passed, one skipped**, with no errors/failures. The original skip is
+`test_gil_stays_disabled_when_requested`, only meaningful on a free-threaded build.
+Coverage report passed the project's95% threshold at97%. Bind the same data path
+on both commands, for example with `COVERAGE_FILE` pointing into the private run:
+
+```sh
+COVERAGE_FILE="$run/coverage.db" "$venv/bin/python" -m coverage run -m pytest
+COVERAGE_FILE="$run/coverage.db" "$venv/bin/python" -m coverage report
+```
+
+An initial reporting command omitted that variable and found no data. Correcting
+only the report invocation read the unchanged database; the successful tests were
+not rerun or retroactively relabeled. A separate summary variable-reuse error
+reported6442 wheel files; independent ZIP/raw-source verification corrected this
+to11 while retaining the original artifact. Keep reporting failures distinct from
+target failures, and verify counts against their actual inventory.
+
+This establishes a baseline route for the selected core/codec/range/CLI discovery
+scope, not all CI jobs, regenerated Unicode tables, persistent fuzzing, another
+revision/platform, an absence of defects or prospective selector benefit. The
+[security policy](https://github.com/kjd/idna/blob/9470c2f69353b2e675f101bd840bec46f206676d/SECURITY.md)
+requires private advisories for vulnerabilities. Ordinary discovery remains
+tool-free and cannot publish reports or execute generated probes on this worker.
+
 ### Rust client crate with a Python wire fixture
 
 A read-only PATH lookup is not a complete installation inventory. Before a cold

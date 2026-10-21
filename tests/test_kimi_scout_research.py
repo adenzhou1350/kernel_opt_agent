@@ -79,6 +79,17 @@ class Context:
 
 
 class TemplateTests(unittest.TestCase):
+    def test_idna_scope_matches_native_capacity_without_generated_tables(self):
+        template = Path(__file__).resolve().parents[1] / "templates/kimi-scout-research-wide.json"
+        specs = [spec for spec in research.configuration(template)["repos"] if spec["repo"] == "kjd/idna"]
+        self.assertEqual(len(specs), 1)
+        spec = specs[0]
+        self.assertEqual(spec["source_prefixes"], ["idna/core.py", "idna/codec.py", "idna/intranges.py", "idna/cli.py"])
+        self.assertIs(spec["issue_intake"], False)
+        self.assertTrue(spec["source_change_windows"])
+        for boundary in ("passed6441", "free-threaded-only skip", "private GitHub advisory", "never truncate"):
+            self.assertIn(boundary, spec["question"])
+
     def test_humanize_core_template_keeps_translation_and_native_limits(self):
         template = Path(__file__).resolve().parents[1] / "templates/kimi-scout-research-wide.json"
         config = research.configuration(template)

@@ -234,6 +234,17 @@
       "question": "Investigate supported retry scheduling, cancellation, RetryAfter and Permanent error chains, duration bounds and ticker lifetimes. Read actual API contracts and existing issue/PR ownership before proposing behavior changes. This library intentionally guarantees an initial attempt and does not interrupt a running operation; neither is automatically a bug. Contribution rules require issue discussion before a PR and favor common use cases over new options. Require a concrete supported public-API reproduction and normal controls, not arbitrary raising fakes, invalid parameter assumptions or documentation-only busywork. Current v7 b1a30d947ca896d37518610255281904b439c619 passed unchanged Linux amd64 Go1.25.10 ordinary/race suites (41 test/subtest events each), offline module resolution with no external requirements; this establishes baseline testability only, not the Go1.23/OS matrix or a discovered repair. Issue194 already reports Notify cancellation before a zero-delay next attempt; retain that owner-reported work and investigate distinct uncovered paths rather than creating another report or PR."
     },
     {
+      "repo": "kjd/idna",
+      "ref": "master",
+      "source_prefixes": ["idna/core.py", "idna/codec.py", "idna/intranges.py", "idna/cli.py"],
+      "source_windows": 8,
+      "source_change_windows": true,
+      "issue_intake": false,
+      "followup_import_context": true,
+      "followup_code_search": true,
+      "question": "Source-only investigation of supported IDNA encode/decode, codec streaming and CLI contracts in these four modules. Distinguish documented Unicode profiles/transitional behavior from defects; require a public contract, a discriminating original-source witness and ordinary controls, not cleanup or guessed unsupported inputs. Owner-native capacity at exact9470c2f: full original Python3.12 pytest/coverage run passed6441, with one free-threaded-only skip and97% line coverage;41 tracked files and11 built package files match raw Git. This is not another revision, the Python/OS matrix, lint/type checks, regenerated Unicode tables, persistent fuzzing or a discovery result. The1.46MiB conformance module exceeds the default sandbox per-file limit; use the reviewed private native route for it, never truncate/replace tests or run arbitrary model code there. Generated tables are not source-audit candidates. Security findings require the project's private GitHub advisory channel, not public issues. Check current author-owned work before implementation. Hypotheses only: no tool, install, execution, network, publication or policy authority."
+    },
+    {
       "repo": "ggml-org/llama.cpp",
       "ref": "master",
       "source_prefixes": ["src/", "ggml/src/", "common/"],
