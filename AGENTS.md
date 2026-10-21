@@ -7,6 +7,13 @@ for analysis and implementation; use scripts for repeatable execution and
 measurement. These instructions supersede older mandatory workflow text in
 research references and historical community records for ordinary delivery work.
 
+Scout discovery, model backends, queues and dashboard development now belongs in
+its separate private repository. The Scout files here are a retained compatibility
+snapshot for existing deployments and study references, not a parallel development
+branch. Keep this repository's active interface focused on hardware, kernels,
+measurement and reusable evidence. Exchange explicit reviewed files or invoke a
+tool; do not introduce sibling-checkout imports or a shared live database.
+
 The activities below are adaptable guidance, not a required sequence or a method
 whitelist. Choose, reorder or omit tools and research steps according to expected
 information value, reuse potential and the task's budget. Existing experience is

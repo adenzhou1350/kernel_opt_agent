@@ -1,5 +1,11 @@
 # Optional Kimi scout
 
+> Compatibility snapshot: active Scout development has moved to a separate
+> private repository. This guide describes the retained implementation here;
+> it is not a second active development target or a claim that production has
+> already migrated. Existing queues, credentials and process handles are not
+> moved or reset by the code extraction. Kernel work does not require Scout.
+
 A small **hypothesis inbox**, not an autonomous PR publisher. It polls explicitly
 selected public repositories, supplies unresolved issue reports, short source
 excerpts, related-PR context and at most one context-matched advisory lesson to

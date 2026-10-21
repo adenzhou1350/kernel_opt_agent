@@ -13,6 +13,20 @@ requirements. Approaching a justified performance limit is a research direction,
 not a certificate required for every useful change. Stronger models should reuse
 the accumulated assets without inheriting a fixed reasoning recipe.
 
+## Project boundary
+
+This repository owns hardware understanding, conditional performance envelopes,
+kernel experiments, reusable measurement tools and scoped optimization lessons.
+It is usable without a community crawler, model service or research queue.
+
+Scout is being developed in a separate private repository: public-source
+discovery, deduplication, model calls, investigation queues and its dashboard.
+The earlier Scout implementation and frozen study references here are retained
+as a compatibility snapshot, not a second active development target. Extracting
+the code does not migrate or reset a running Scout deployment. Interoperation
+uses explicit lesson/result files or owner-invoked tools, not a sibling checkout
+import, shared live database or mandatory service.
+
 ## Start
 
 Python 3.10+ is enough for the lightweight commands; no model API, GPU framework,
@@ -95,17 +109,12 @@ metadata or `tirx check` in a private compiler environment. Complete positive an
 negative examples are in `examples/tirx/`. GPU validation and matched performance
 measurements remain separate; see the [integration pilot](docs/tirx_integration_status.md).
 
-An optional [Kimi public-source scout](scripts/KIMI_SCOUT.md) can offload bounded
-source/issue triage to an existing Kimi Code account. It has no model tools or
-publication rights, deduplicates inputs, and caps concurrency and daily usage.
-Its output is an unverified hypothesis inbox, not a replacement for validation.
-
-For the separately frozen [prospective observation pilot](docs/references/scout_prospective_observation_pilot.md),
-`scripts/scout_observation_pilot.py` coordinates six rotated arms, journals requests
-before dispatch and retains failed/unknown usage. It requires reviewed, time-bounded
-provider/native adapters and durable caller-owned logging; it does not enroll cases,
-run commands, restart Scout or establish research efficacy. Its offline checks are
-`python -B -m unittest tests.test_scout_observation_pilot`.
+The [earlier Scout guide](scripts/KIMI_SCOUT.md) and
+[prospective observation pilot](docs/references/scout_prospective_observation_pilot.md)
+remain reproducibility references. Scout outputs are unverified hypotheses, not
+PR readiness. Frozen studies retain failed and incomplete observations; neither
+the code extraction nor a successful community fix demonstrates research efficacy.
+They are not required to start a kernel experiment.
 
 Useful specialist tools include paired sample analysis, [commit-exact source bundle
 transport](docs/scout_native_cpu_validation.md#commit-exact-source-before-native-validation),
@@ -132,6 +141,7 @@ Historical community governance documents are records, not default instructions.
 ## Checks
 
 ```bash
+python -B -m unittest tests.test_kernel_core_independence
 python -B -m pytest -q -p no:cacheprovider tests/test_worklog.py tests/test_knowledge_notes.py
 python -B -m pytest -q -p no:cacheprovider tests/test_hardware_probe.py tests/test_hardware_profile.py tests/test_hardware_cuda.py tests/test_hardware_topology.py tests/test_hardware_handoff.py
 python scripts/kernel_opt.py knowledge check
