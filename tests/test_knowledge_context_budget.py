@@ -12,6 +12,18 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_plugin_import_advice_preserves_strict_warning_contract(self):
+        result = lesson_suggestions("pytest collection plugin pre-import PytestAssertRewriteWarning")
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "pytest-collection-before-suite-claims")
+        self.assertIn("before pytest registration", card["avoid_when"])
+        self.assertIn("after registration", card["avoid_when"])
+        self.assertIn("do not suppress", card["avoid_when"])
+        self.assertTrue(any(item["url"].endswith("#assertion-rewriting") for item in card["evidence"]))
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_versioned_read_advice_keeps_metadata_and_data_controls(self):
         result = lesson_suggestions(
             "object generation metadata version selector range read size",

@@ -160,8 +160,8 @@ Thus prior owner exposure for this slot is confirmed, not merely unknown. Keep
 the original slot, disclose the known mechanism and do not present it as an
 unknown-target prospective discovery or an independent blinded miss audit.
 No selected implementation/test body was newly audited by this metadata check,
-no slot was replaced, and no new compared model call was made. Slot2 remains
-unprepared; broad earlier Scout/training exposure remains unknown. The pilot
+no slot was replaced, and no new compared model call was made. Slot2 was still
+unprepared at that point; broad earlier Scout/training exposure remains unknown. The pilot
 still cannot establish selector efficacy or paper readiness.
 
 The optional agent adapter now also has an exact-payload preflight receipt
@@ -175,3 +175,47 @@ charged one preparation invocation in addition to seven sequence invocations.
 These are execution-boundary controls, not new comparison arms or demonstrated
 token/monetary savings. Full report/oracle/import review and provider accounting
 remain separate requirements.
+
+## Slot2 preparation stopped before collection
+
+The fixed tqdm commit `5dcb022b55553b60ed2131b64aa5bf1e65470df1` was acquired
+without a target-behavior audit or model calls. Filename-only selection recorded
+all19 original top-level test modules. None matched the target stem `std`, so
+the frozen fallback selected **`tests/tests_asyncio.py`**, not a retrospective
+choice of `tests/tests_tqdm.py`. The target is58,047 bytes, beyond a single32KiB
+command output; the selected companion is4,713 bytes. Keep that target-read
+unavailability and the fallback's limited relevance; neither proves the value
+of learned selection over a competent chunk-aware rule.
+
+The first wheel-build attempt failed on Windows uv's socket10013 before resolving
+its build requirements. That failure is retained. An explicitly offline build
+then reused reviewed setuptools84.2.1/setuptools-scm10.3.4, satisfying the original
+backend requirements. The official shallow-source wheel identifies itself as
+`0.1.dev1+g5dcb022b5`, not a published release. Its tracked package files match
+raw Git blobs; no version stub or source/test substitution was introduced.
+
+The actual pinned offline CPU image had no pytest/plugins. The reviewed closure
+therefore reused the earlier pytest9.1.1 wheels and added pytest-asyncio1.4.0 and
+pytest-timeout2.4.0, checking the artifacts against PyPI's published hashes.
+The first native test entry failed importing the missing Python<3.13 conditional
+`typing_extensions` dependency, before collecting any target cases. One declared
+pre-model repair added typing-extensions4.16.0, without changing source, tests,
+configuration, profile or the original600s preparation deadline.
+
+The second entry also failed **before collection**: the controller wrapper
+pre-imported `pytest_asyncio.plugin` for its import diagnostic, then asked pytest
+to register it with `-p`. `PytestAssertRewriteWarning` became fatal under the
+project's original `-W=error`. This is a controller initialization failure, not
+a tqdm assertion or library defect. Preserve the strict warning contract rather
+than disable it, edit tests or buy a third attempt. Future wrappers should let
+pytest register plugins first and inspect their actual module identities after
+registration, not execute those imports as a preflight.
+
+Preparation stopped528.24s after source-directory creation. That elapsed figure
+includes acquisition, setup failures, controller work and classification; it is
+not pure test time, total historical engineering cost or a method advantage.
+There were **zero compared model calls and zero executed target cases**, one
+image-inspection command and four preparation/test-entry commands. All five
+command containers were removed and both owned sessions released. The slot stays
+unavailable for the comparison, not NO_FINDING or a successful rerun. No current
+three-slot efficacy ranking, new community PR or paper-readiness claim follows.
