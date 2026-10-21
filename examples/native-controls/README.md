@@ -85,3 +85,34 @@ Bound the reviewed test process separately (this run used two CPU affinities,
 exit). A private venv is not a sandbox for arbitrary model-generated code.
 Acquisition/build/installation failures and costs remain separate from the
 0.41s native test capture; that test duration is not end-to-end preparation time.
+
+### Independent check of the author's PR5302
+
+[urllib3 PR5302](https://github.com/urllib3/urllib3/pull/5302) already addresses
+numeric Retry-After fields that exceed CPython's integer conversion limit.
+This is existing author-owned work, not a new Scout repair or competing PR.
+An independent Linux CPython3.12.3/pytest9.1.1 replay used its exact head
+`232cdf1ffe561f245b2f04a1f2987445db5a40a6` and unchanged parent
+`3ce7096bf5c72e3081a9b176d49a064e9ef0cdcb`:
+
+| Full original Retry-module selection | Passed | Failed | Skipped/errors |
+| --- | ---: | ---: | ---: |
+| Parent production + identical author-head test file | 71 | 12 | 0 |
+| Author head, unchanged production and tests | 83 | 0 | 0 |
+
+The control derives **only** its `test/test_retry.py` from the head; production
+remains the original parent. Both JUnit reports contain the same83 unique cases.
+All12 parent failures are the integer-conversion `ValueError`, including large
+and zero-padded values through mocked sleeping. This does not claim real sleeping
+or network transport was tested.
+
+Use the complete source roots, original project config/`conftest` and command
+above, replacing only the control's test file with `git show
+232cdf1ffe561f245b2f04a1f2987445db5a40a6:test/test_retry.py`. The reviewed private
+test closure includes the required Hypercorn fork. Each arm's official Hatch
+build supplied its separately bound `_version.py`; all37 tracked package files
+in each wheel matched raw Git bytes. A diagnostic plugin inspected actual
+package/retry imports **after** pytest registration; it changed no tests. All
+tracked/declared derived files matched before/after, and each owned process group
+exited cleanly. Do not infer a full nox/CI pass, current-main qualification,
+security severity, performance gain or discovery-method benefit from this check.
