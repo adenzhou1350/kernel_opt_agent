@@ -62,6 +62,42 @@ pin: pytest-asyncio's conditional requirement remained. No project test launched
 in that negative control. These are startup/delivery observations, not proof
 pip resolves every possible project or that any candidate is correct.
 
+### Keep diagnostics out of plugin startup
+
+Use `python -m pytest` in a fresh process, letting pytest register plugins before
+they are imported. An import-provenance wrapper that imports
+`pytest_asyncio.plugin` and then calls `pytest.main(..., -p pytest_asyncio.plugin)`
+can itself raise `PytestAssertRewriteWarning` before collecting any cases under
+`-W error`. Do not disable the project's warning contract to make that wrapper
+pass. Read distribution metadata without importing plugins; use `--trace-config`
+or inspect actual module paths after registration. Metadata alone still does
+not prove which module was imported.
+
+The opt-in `check_startup_order.py` reuses **the same four-case `test_startup.py`**
+above. With its reviewed dependencies already importable in the selected Python:
+
+```sh
+python -B check_startup_order.py --output /absolute/private/fresh-startup-control
+```
+
+It starts two separate processes with the same explicit plugins and strict
+warnings. Normal CLI must pass all four original cases without errors/skips;
+deliberate pre-import must exit1 with the exact rewrite warning before a JUnit
+report exists. Both raw exits/logs remain separate; an expected initialization
+failure is not a passing target test. The helper installs nothing, creates no
+provider request and leaves its fresh output for inspection. Its20s child bounds
+cover these reviewed non-spawning toy cases, not arbitrary model-generated code
+or descendant-process containment. Startup failure/version drift stops the check;
+there is no automatic retry, dependency substitution or warning suppression.
+
+Windows Python3.14.3/pytest9.0.3 and the fixed offline Linux CPU sandbox with
+Python3.12/pytest9.1.1 both discriminated this control during development.
+Both used pytest-asyncio1.4.0, pytest-mock3.17.0, pytest-repeat0.9.4 and
+pytest-timeout2.4.0; typing-extensions was4.15.0/4.16.0 respectively. Versions,
+normal JUnit and plugin trace, negative stderr and fixture hash are retained.
+These are known-fixture initialization checks, not a rescued source-choice
+trial, target-project qualification, measured model savings or PR yield.
+
 Then run the real target tests with its config, plugins, exact source and public
 caller contracts through the existing native capture tools. Keep acquisition,
 transfer, installation, startup, target tests and owner effort separate. Two
