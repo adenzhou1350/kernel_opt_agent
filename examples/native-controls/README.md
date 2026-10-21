@@ -4,6 +4,42 @@ These are opt-in checks of real dependency behavior, not tests of this project's
 ordinary import closure. Review the source and target environment before running
 them; no package installation or environment provisioning is performed.
 
+## LMCache wrapper shutdown dispatch
+
+[`lmcache_shutdown_dispatch.py`](lmcache_shutdown_dispatch.py) independently checks
+one component of [vLLM issue62808](https://github.com/vllm-project/vllm/issues/62808).
+It imports the actual installed wrapper, base class and transfer-state module,
+bypasses the connector constructor, and attaches a tracking engine. Direct calls
+and `ensure_kv_transfer_shutdown()` both reach the inherited no-op: zero engine
+calls. A private forwarding subclass changes each to one call; the no-agent
+control remains a no-op. This is a causal dispatch check, **not** real LMCache
+construction, background-thread shutdown, H200/SIGTERM reproduction or a full fix.
+
+Use an already reviewed task-private **CPU** vLLM environment with external
+resource/time bounds and private home/temp/cache directories:
+
+```sh
+CUDA_VISIBLE_DEVICES='' VLLM_PLUGINS='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+  /path/to/reviewed-cpu-env/bin/python -B \
+  /absolute/kernel_opt_agent/examples/native-controls/lmcache_shutdown_dispatch.py
+```
+
+The checked environment was the official e68efc6 CPU distribution, Torch2.14+cpu,
+Python3.12.3. All three complete module hashes in the script equal inspected
+main `e8ae84bf7e992c63570905fce3073fd7a7de2412`; that is component parity, not
+full-current-main execution. Installation-specific loader settings are not
+provided by this command. Hash or import failure is not the expected witness.
+No source is patched; exit0 means the four stated dispatch observations held.
+
+The [`use_native` branch](https://github.com/vllm-project/vllm/blob/e8ae84bf7e992c63570905fce3073fd7a7de2412/vllm/distributed/kv_transfer/kv_connector/v1/lmcache_connector.py#L87-L108)
+selects a different implementation. Its in-tree `LMCacheConnectorV1Impl` declares
+no `shutdown` method at this pin, so a forwarding-only control must not be called
+a validated repair for both backend modes. The earlier
+[PR36905](https://github.com/vllm-project/vllm/pull/36905) also addressed adapter
+cleanup and closed without merging. Read closure history and current source;
+neither a closed report nor a passing tracking-engine control proves resolution.
+This supports the reporter's existing work, not an additional discovery or PR.
+
 ## HTTP upload URL ownership
 
 `http_upload_url_checks.py` checks a specific Scout hypothesis: fsspec's

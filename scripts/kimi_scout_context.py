@@ -873,6 +873,16 @@ class PublicContext:
             parts = spaced.split()
             if 2 <= len(parts) <= 6 and all(len(part) >= 2 for part in parts):
                 fallback = f'("{anchor}" OR "{spaced}")'
+        # A missing method has no visible declaration for source_duplicate_title
+        # to select. Keep a single explicit unqualified name() from the title
+        # with its distinctive anchor, instead of returning five unrelated
+        # class-wide PRs. Both remain quoted lexical hints, not owner resolution.
+        calls = set(re.findall(
+            r"(?<![\w.])([A-Za-z_][A-Za-z0-9_]{2,31})[ \t]*\([ \t]*\)",
+            title[:1000],
+        ))
+        if anchor and len(calls) == 1 and anchor not in calls:
+            fallback += ' "' + next(iter(calls)) + '"'
         query_text = f"repo:{repo} in:title,body {terms}"
         result = []
         repository_url = f"https://api.github.com/repos/{repo}"

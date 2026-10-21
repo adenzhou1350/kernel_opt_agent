@@ -141,6 +141,23 @@ use the repository's visible all-state issue/PR search under existing authority,
 or keep duplicate coverage unknown. Finding an author's repair redirects work
 to scoped independent verification, not a competing PR or a credited discovery.
 
+When the existing broad query needs its fallback, a title with one explicit
+unqualified `method()` now keeps that method beside the distinctive identifier.
+Both terms remain quoted title hints, not source binding or owner resolution;
+ambiguous calls and already qualified spellings keep the previous fallback.
+The limit remains two searches and five returned sources, including closed work.
+In a known-report live replay of vLLM #62808, the original class-only fallback
+returned five unrelated open PRs, while the class-plus-`shutdown` fallback also
+found closed PR36905. Independent PR inspection confirmed it was **not merged**.
+Both policies used two search GETs plus the public-visibility GET. This is one
+exposed retrieval counterexample, not prospective recall, token/price savings,
+novelty, maintainer acceptance or proof that narrower queries always help.
+The accompanying [native dispatch control](../../examples/native-controls/README.md#lmcache-wrapper-shutdown-dispatch)
+separates real wrapper/caller behavior from actual LMCache teardown and backend
+mode compatibility. The Postman CLI failed before startup on a missing bundled
+dependency and Orbit returned403; verification used existing mocked unit routes
+and the real GitHub client, not a Postman simulation or workspace publication.
+
 For a source follow-up that exactly cites an already displayed issue, the
 related-work slot now uses the existing bounded issue timeline rather than
 searching only PR bodies for its number. A fix can predate the report and be

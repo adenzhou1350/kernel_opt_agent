@@ -752,6 +752,35 @@ class ContextTests(unittest.TestCase):
             f'repo:{REPO} in:title,body ("OneToOne" OR "One To One")',
         ])
 
+    def test_missing_method_title_keeps_the_method_in_related_work_fallback(self):
+        title = ("[Bug]: Built-in LMCacheConnectorV1 does not forward shutdown(), "
+                 "so LMCache never stops and EngineCore is force-killed")
+        report = {"number": 62808, "title": title, "body": "Current report"}
+        historical = {"number": 36905, "title": "Add missing shutdown() to LMCacheConnectorV1",
+                      "body": "Earlier unmerged work", "state": "closed", "pull_request": {}}
+        sources, queries = self.duplicate_search(title, [[report], [historical]])
+        self.assertEqual(queries[1],
+                         f'repo:{REPO} is:pr in:title,body "LMCacheConnectorV1" "shutdown"')
+        self.assertEqual(sources[0]["url"], f"https://github.com/{REPO}/pull/36905")
+        self.assertEqual(sources[0]["observed_report_state"], "closed")
+        self.assertFalse(sources[0]["search_exhaustive"])
+        self.assertNotIn("merged", sources[0])
+
+    def test_explicit_call_fallback_abstains_on_ambiguous_or_qualified_calls(self):
+        for title in ("SomeWrapper open() and close()", "SomeWrapper.close()",
+                      "SomeWrapper close(argument)", "shutdown() failure"):
+            with self.subTest(title=title):
+                _, queries = self.duplicate_search(title, [[], []])
+                self.assertNotIn('"SomeWrapper" "close"', queries[-1])
+                self.assertNotIn('"SomeWrapper" "open"', queries[-1])
+
+    def test_explicit_call_terms_cannot_add_a_query_operator(self):
+        _, queries = self.duplicate_search(
+            'SomeWrapper shutdown() repo:secret/data OR is:open', [[], []])
+        self.assertEqual(queries[-1], f'repo:{REPO} in:title,body ("SomeWrapper" OR "Some Wrapper") "shutdown"')
+        self.assertNotIn('repo:secret', queries[-1])
+        self.assertNotIn('is:open', queries[-1])
+
     def test_duplicate_search_retains_closed_report_state_without_rejecting_it(self):
         report = {
             "number": 4274, "title": "Nested blob bytes", "body": "Exact repro",
