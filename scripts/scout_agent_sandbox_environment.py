@@ -7,6 +7,7 @@ Only the injected broker client can execute, and uncertain outcomes stop reuse.
 
 from __future__ import annotations
 
+import hashlib
 import math
 import re
 import time
@@ -68,6 +69,54 @@ def cpu_isolation_matches(raw):
         and isinstance(isolation.get("SecurityOpt"), list)
         and "no-new-privileges:true" in isolation["SecurityOpt"]
     )
+
+
+def require_cpu_payload_preflight(payload, result, *, image, command, expected_exit_code=0):
+    """Bind a reviewed command outcome to the exact final input files.
+
+    Pure receipt check: no execution, upload, model call or budget reset. Run
+    the real promised route on this payload before paid investigation, rather
+    than reusing an earlier preparation run with different files. Exit zero
+    alone does not establish genuine tests, valid oracles or post-run integrity.
+    A known genuine test failure may explicitly expect its nonzero exit code;
+    missing dependencies/files or an unknown execution are not such a result.
+    """
+    if (not isinstance(payload, dict) or not 1 <= len(payload) <= 1024
+            or not isinstance(image, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", image)
+            or not isinstance(command, str) or not command or "\0" in command
+            or len(command.encode()) > 8192 or type(expected_exit_code) is not int
+            or not 0 <= expected_exit_code <= 125):
+        raise ValueError("supply the final bounded payload, pinned image and reviewed command")
+    hashes = {}
+    size = 0
+    for path, body in payload.items():
+        if (not isinstance(path, str) or not path or len(path) > 256
+                or "\\" in path or ":" in path or any(ord(c) < 32 for c in path)
+                or any(part in {"", ".", ".."} for part in path.split("/"))
+                or not isinstance(body, bytes) or len(body) > 1024**2):
+            raise ValueError("payload must contain regular relative paths and bounded bytes")
+        size += len(body)
+        hashes[path] = hashlib.sha256(body).hexdigest()
+    if size > 8 * 1024**2:
+        raise ValueError("payload exceeds CPU persistence capacity")
+    if (not isinstance(result, dict) or result.get("workspace_sha256") != hashes
+            or result.get("command") != command or result.get("image") != image
+            or result.get("profile") != "cpu" or not cpu_isolation_matches(result)
+            or result.get("status") != "completed" or result.get("termination") is not None
+            or result.get("container_removed") is not True
+            or result.get("workspace_persisted") is not True or result.get("oom_killed") is not False
+            or type(result.get("exit_code")) is not int or result["exit_code"] != expected_exit_code
+            or not all(isinstance(result.get(key), str) for key in ("stdout", "stderr"))
+            or len((result["stdout"] + result["stderr"]).encode()) > 32768
+            or any(not isinstance(result.get(key), str)
+                   or re.fullmatch(r"[0-9a-f]{24}", result[key]) is None
+                   for key in ("session_id", "run_id"))):
+        raise SandboxFailure("final payload has no matching reviewed CPU preflight; do not query the model")
+    return {"image": image, "command": command, "expected_exit_code": expected_exit_code,
+            "payload_sha256": hashes,
+            "session_id": result["session_id"], "run_id": result["run_id"],
+            "boundary": "Exact input/command receipt only; not test validity, post-run integrity, "
+                        "discovery efficacy or authority for model calls."}
 
 
 class CPUSandboxEnvironment:

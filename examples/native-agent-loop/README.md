@@ -273,3 +273,38 @@ file: the same command then passed651 cases. That is controller diagnosis, not
 a rescued trial, a new finding, or support for selector effectiveness. Preserve
 the original failed command and scoped results; do not silently grant the
 earlier environment's capabilities to a new capsule.
+
+The optional pure `require_cpu_payload_preflight()` check in
+`scout_agent_sandbox_environment` compares the final `dict[str, bytes]` with the
+broker's complete pre-command `workspace_sha256`, exact command and pinned CPU
+image. It rejects omitted/added/changed files, another command/profile/image,
+uncertain or incomplete runs and failed persistence/cleanup before any model
+delegate is reached:
+
+```python
+require_cpu_payload_preflight(final_payload, raw_broker_result,
+                              image=pinned_image, command=promised_native_command)
+# Only after separately reviewing the actual native test report/imports:
+message = native_model.query(messages, **kwargs)
+```
+
+It dispatches nothing, makes no provider request and grants no extra budget.
+Charge the actual preflight as preparation and preserve its raw result. By
+default the reviewed exit code is zero. If original tests have a genuine known
+assertion failure, an owner can explicitly bind `expected_exit_code=1`; do not
+require an already-correct target or silently treat a missing dependency as a
+valid failure. This helper cannot validate test oracles, authenticate supplied
+receipts, prove post-run file integrity or settle provider usage. Retain those
+separate checks. Historical failed payloads and trial outcomes stay unchanged.
+
+The updated example checks this binding before its deterministic model delegate
+can run. Its deliberately incorrect toy subject legitimately exits1 with one
+failure and one control pass, so the preflight binds that reviewed outcome
+instead of requiring every target to pass. Single-action and batch development
+runs each used **one preparation invocation plus seven sequence invocations**;
+all16 command containers were removed and both owned sessions released. They
+made zero actual model requests. The adapter's28 component tests also passed on
+Windows and a fresh offline Linux CPU sandbox. These checks show the route and
+guards work, not real-provider behavior, saved money, improved discovery or a
+rescued earlier trial. The preparation invocation is additional work, not a
+free or silently hidden action.

@@ -1,12 +1,16 @@
 """Pure adapter controls; live broker evidence is a separate optional check."""
 import copy
+import hashlib
 from pathlib import Path
 import sys
 import unittest
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from scout_agent_sandbox_environment import CPUSandboxEnvironment, SandboxFailure, require_text_submission
+from scout_agent_sandbox_environment import (
+    CPUSandboxEnvironment, SandboxFailure, require_text_submission,
+    require_cpu_payload_preflight,
+)
 
 IMAGE = "sha256:" + "a" * 64
 HEALTH = {"ready": True, "backend": "docker-cpu", "network": "none", "image": IMAGE,
@@ -22,6 +26,65 @@ RESULT = {"image": IMAGE, "container_removed": True, "status": "completed",
 
 
 class EnvironmentTests(unittest.TestCase):
+    def preflight(self):
+        payload = {"bootstrap.py": b"read the manifest", "source.manifest.json": b"{}"}
+        receipt = copy.deepcopy(RESULT)
+        receipt.update(session_id="b"*24, run_id="c"*24, command="python3 -B bootstrap.py test",
+                       workspace_sha256={p: hashlib.sha256(b).hexdigest() for p, b in payload.items()})
+        return payload, receipt
+
+    def test_preflight_binds_exact_final_inputs_without_execution_or_mutation(self):
+        payload, receipt = self.preflight()
+        before = copy.deepcopy((payload, receipt))
+        value = require_cpu_payload_preflight(payload, receipt, image=IMAGE, command=receipt["command"])
+        self.assertEqual(value["run_id"], receipt["run_id"])
+        self.assertEqual(value["payload_sha256"], receipt["workspace_sha256"])
+        self.assertEqual((payload, receipt), before)
+
+    def test_preparation_success_cannot_qualify_omitted_changed_or_extra_final_files(self):
+        payload, receipt = self.preflight()
+        for changed in ({"bootstrap.py": payload["bootstrap.py"]},
+                        {**payload, "source.manifest.json": b"changed"},
+                        {**payload, "unqualified-helper.py": b"pass"}):
+            model = Mock()
+            with self.subTest(paths=list(changed)), self.assertRaises(SandboxFailure):
+                require_cpu_payload_preflight(changed, receipt, image=IMAGE, command=receipt["command"])
+                model()
+            model.assert_not_called()
+
+    def test_preflight_rejects_failed_unsettled_or_other_route_receipts(self):
+        payload, receipt = self.preflight()
+        for change in ({"exit_code": 1}, {"exit_code": True}, {"exit_code": None},
+                       {"status": "started"}, {"termination": "timeout"}, {"oom_killed": True},
+                       {"workspace_persisted": False}, {"container_removed": False},
+                       {"profile": "gpu"}, {"image": "mutable:latest"},
+                       {"command": "python3 -B bootstrap.py prepare"},
+                       {"run_id": "unknown"}, {"session_id": None},
+                       {"stdout": None}, {"stderr": "x"*32769},
+                       {"workspace_sha256": {}}, {"isolation": {}}):
+            with self.subTest(change=change), self.assertRaises(SandboxFailure):
+                require_cpu_payload_preflight(payload, {**receipt, **change}, image=IMAGE, command=receipt["command"])
+
+    def test_reviewed_test_failure_can_be_preserved_without_requiring_a_passing_target(self):
+        payload, receipt = self.preflight()
+        receipt["exit_code"] = 1
+        with self.assertRaises(SandboxFailure):
+            require_cpu_payload_preflight(payload, receipt, image=IMAGE, command=receipt["command"])
+        result = require_cpu_payload_preflight(
+            payload, receipt, image=IMAGE, command=receipt["command"], expected_exit_code=1)
+        self.assertEqual(result["expected_exit_code"], 1)
+        self.assertIn("not test validity", result["boundary"])
+
+    def test_preflight_rejects_invalid_payload_before_any_receipt_can_match(self):
+        _, receipt = self.preflight()
+        for payload in ({}, {"../escape": b"x"}, {"/absolute": b"x"}, {"a//b": b"x"},
+                        {"a\\b": b"x"}, {"a/./b": b"x"}, {"a\0b": b"x"},
+                        {"file": "not bytes"}, {"file": b"x"*(1024**2+1)},
+                        {f"file-{n}": b"x"*1024**2 for n in range(9)},
+                        {f"file-{n}": b"" for n in range(1025)}):
+            with self.subTest(paths=list(payload)[:2]), self.assertRaises(ValueError):
+                require_cpu_payload_preflight(payload, receipt, image=IMAGE, command=receipt["command"])
+
     def environment(self, result=None, **kwargs):
         self.requests, self.records = [], []
 

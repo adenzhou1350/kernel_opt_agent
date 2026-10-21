@@ -3,8 +3,9 @@
 [Protocol](scout_native_source_choice_pilot_v3.md) was committed as
 `2122171d4e24ee420757a1a82bca31bc5fe7e9a4` before selected implementation/test
 acquisition or compared model calls. All three original slots remain fixed.
-No model prediction or finding is reported yet; zero calls is not zero findings
-from completed trials.
+The preparation section below predates the incomplete slot0 comparison. No
+valid final submission or qualified finding resulted from that comparison;
+unprepared slots are not completed zero-finding trials.
 
 ## Slot0 native capacity, 2026-10-21
 
@@ -145,3 +146,32 @@ Controller development, diagnosis and adjudication are additional costs; zero
 new findings does not make them zero or show that every configuration has
 exhausted the repository's useful opportunities. No community PR, selector
 superiority, fully priced comparison or paper readiness is established.
+
+## Subsequent slot1 prior-exposure check
+
+Before preparing slot1 or buying any of its compared calls, repository metadata
+confirmed that the owner had already developed an in-place interruption fix on
+2026-10-18 from **exactly** the slot's frozen parent/source
+`b5ae11e41ba64a9e27fdc42d8c138d7db7699910`. The retained local corrective commit
+is `d99c5a543696a4263f4054b7eb15a6e8a3008e80`; this is prior owner development,
+not a new model-discovered result or a claim of upstream publication.
+
+Thus prior owner exposure for this slot is confirmed, not merely unknown. Keep
+the original slot, disclose the known mechanism and do not present it as an
+unknown-target prospective discovery or an independent blinded miss audit.
+No selected implementation/test body was newly audited by this metadata check,
+no slot was replaced, and no new compared model call was made. Slot2 remains
+unprepared; broad earlier Scout/training exposure remains unknown. The pilot
+still cannot establish selector efficacy or paper readiness.
+
+The optional agent adapter now also has an exact-payload preflight receipt
+check, wired into its scripted non-menu example before any model delegate.
+It rejected the retained omitted-manifest payload when compared with the later
+diagnostic receipt; that larger diagnostic workspace also contains owner probe
+files, so it does **not** qualify the originally frozen capsule either. No file
+or trial outcome was rewritten to pass this check. Windows/Linux28 component
+tests and fresh single/batch zero-provider checks passed; each latter check
+charged one preparation invocation in addition to seven sequence invocations.
+These are execution-boundary controls, not new comparison arms or demonstrated
+token/monetary savings. Full report/oracle/import review and provider accounting
+remain separate requirements.

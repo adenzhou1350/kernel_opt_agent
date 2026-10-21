@@ -41,7 +41,10 @@ def main():
     sys.dont_write_bytecode = True
     sys.path.insert(0, str(HERE.parents[1] / "scripts"))
     sys.path.insert(0, str(source.parent))
-    from scout_agent_sandbox_environment import CPUSandboxEnvironment, SandboxFailure, require_text_submission
+    from scout_agent_sandbox_environment import (
+        CPUSandboxEnvironment, SandboxFailure, require_text_submission,
+        require_cpu_payload_preflight,
+    )
     from minisweagent.agents.default import DefaultAgent
     from minisweagent.environments.local import LocalEnvironment
     from minisweagent.models.test_models import DeterministicModel, make_output
@@ -58,6 +61,7 @@ def main():
     record("session.json", session)
     session_id = session["id"]
     env = None
+    preflight_ready, preflight_uncertain = False, False
     started = time.monotonic()
     commands = [
         "python3 -B -c 'print('",
@@ -78,6 +82,8 @@ def main():
 
     class ObservedModel(DeterministicToolcallModel if args.batched_actions else DeterministicModel):
         def query(self, messages, **kwargs):
+            if not preflight_ready:
+                raise SandboxFailure("final payload preflight has not been reviewed")
             # This task can only finish through a native command, not free text.
             env.check_action_capacity()
             self.observed.append(copy.deepcopy(messages))
@@ -114,9 +120,38 @@ def main():
             record=record, finish=require_text_submission(LocalEnvironment._check_finished,
                 marker="COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT"),
             allow_dynamic_commands=True, max_actions=7, command_timeout=5, wall_seconds=120)
-        for name in ("fixture_subject.py", "fixture_checks.py"):
+        blocked_agent, blocked_model = make_agent([[commands[0]]], "must-not-query.json")
+        try:
+            blocked_model.query([])
+        except SandboxFailure:
+            pass
+        else:
+            raise AssertionError("Model delegate reached before payload preflight")
+        assert blocked_model.observed == [] and env.attempts == 0
+        payload = {name: (HERE / name).read_bytes()
+                   for name in ("fixture_subject.py", "fixture_checks.py")}
+        for name, body in payload.items():
             client.call("write", {"session_id": session_id, "path": name,
-                        "content_base64": base64.b64encode((HERE / name).read_bytes()).decode()})
+                        "content_base64": base64.b64encode(body).decode()})
+        request = {"session_id": session_id, "command": commands[2], "timeout": 5}
+        record("payload-preflight-intent.json", request)
+        preflight_uncertain = True
+        raw = client.call("run", request)
+        record("payload-preflight-result.json", raw)
+        # The deliberately wrong toy subject must fail its real two-test suite.
+        checked = require_cpu_payload_preflight(
+            payload, raw, image=health["image"], command=commands[2], expected_exit_code=1)
+        assert "Ran 2 tests" in raw["stderr"] and "FAILED (failures=1)" in raw["stderr"]
+        preflight_uncertain = False
+        try:
+            require_cpu_payload_preflight({"fixture_subject.py": payload["fixture_subject.py"]},
+                                          raw, image=health["image"], command=commands[2], expected_exit_code=1)
+        except SandboxFailure:
+            pass
+        else:
+            raise AssertionError("A larger preparation qualified an omitted final file")
+        record("payload-preflight-binding.json", checked)
+        preflight_ready = True
         rejected_queries = 0
         if args.batched_actions:
             # Whole-response validation must prevent even a valid prefix from running.
@@ -175,7 +210,10 @@ def main():
                "scripted_queries": agent.n_calls + rejected_queries,
                "completed_sequence_queries": agent.n_calls, "rejected_response_queries": rejected_queries,
                "batched_actions": args.batched_actions,
-               "actual_model_api_calls": 0, "sandbox_calls": 7, "syntax_error_reaches_next_query": True,
+               "actual_model_api_calls": 0, "sandbox_calls": 8, "preflight_sandbox_calls": 1,
+               "sequence_sandbox_calls": 7, "exact_final_payload_preflight": True,
+               "omitted_final_file_rejected": True, "unqualified_payload_stops_before_model_delegate": True,
+               "syntax_error_reaches_next_query": True,
                "empty_submission_is_task_feedback_not_success": True,
                "exhausted_actions_stop_before_model_delegate": True,
                "within_session_toy_edit_persists": True, "host_source_unchanged": True,
@@ -184,10 +222,10 @@ def main():
         print((args.output / "summary.json").read_text())
     except BaseException as error:
         record("failure.json", {"type": type(error).__name__, "message": str(error),
-                                "uncertain": bool(env and env.uncertain)})
+                                "uncertain": preflight_uncertain or bool(env and env.uncertain)})
         raise
     finally:
-        if env is None or not env.uncertain:
+        if not preflight_uncertain and (env is None or not env.uncertain):
             record("release.json", client.call("release", {"session_id": session_id}))
 
 
