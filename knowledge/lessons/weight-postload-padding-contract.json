@@ -1,0 +1,22 @@
+{
+  "id": "weight-postload-padding-contract",
+  "title": "Check weight post-load padding before rejecting an unaligned configuration",
+  "applies_when": "A kernel requires aligned dimensions but a backend's support predicate or constructor does not reject every unaligned logical dimension, particularly modular quantized MoE experts.",
+  "lesson": "Trace the weight lifecycle through process_weights_after_loading, not only __init__ or is_supported_config. At the pinned CPUExpertsInt8 source, post-load calls _pad_moe_intermediate before both VNNI prepack calls. Its two alignment constants are 32 and the shared helper rounds the logical intermediate dimension up to their LCM. The helper's SWIGLUOAI no-padding branch is not a counterexample for this backend: the actual base support predicate calls the class activation guard, which permits only SILU and GELU_TANH here. Therefore a logical per-rank size of 176 need not be rejected at selection to satisfy the later 32-aligned weight contract. PR62016 merged exactly at the inspected source pin; a closed search hit alone would not establish that fact.",
+  "avoid_when": "A distinct backend, supported activation that bypasses padding, prepack reached before normalization, direct bypassing caller or inconsistent dependent scale/bias layout needs separate evidence. This source inspection does not establish every MoE scale shape, numerical correctness, actual AMX kernel execution, another binary build, model results or improved Scout cost/recall. It refutes one missing-padding premise, not all allegations in cpu_moe.py. Do not write duplicate shape rejection or repeat the already-merged author's fix without a failing supported witness.",
+  "evidence": [
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/284c0317c486fc605b915a39a540053ec3a1b59f/vllm/model_executor/layers/fused_moe/experts/cpu_moe.py",
+      "note": "Complete source has CPUExpertsInt8 alignment constants, its SILU/GELU_TANH activation guard, the shared rounding/padding helper and post-load padding before convert_weight_packed. Both the original lead pin and inspected current main resolve to Git blob fe4f80f372dec92b6d8e602a5a81e776bbb75cb3. Static source evidence only."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/284c0317c486fc605b915a39a540053ec3a1b59f/vllm/model_executor/layers/fused_moe/modular_kernel.py#L558",
+      "note": "FusedMoEExperts.is_supported_config invokes cls._supports_activation before accepting the configuration, connecting the backend's activation restriction to the helper's no-padding exception. Not a mocked/native runtime observation."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/pull/62016",
+      "note": "The existing author's merged change includes CPU INT8 intermediate padding. Its model, kernel-test and benchmark reports are the author's results, not our independent reproduction; live merge_commit_sha was checked rather than inferring a merge from closed state."
+    }
+  ],
+  "status": "counterexample"
+}
