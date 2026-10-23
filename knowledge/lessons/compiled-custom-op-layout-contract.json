@@ -1,0 +1,22 @@
+{
+  "id": "compiled-custom-op-layout-contract",
+  "title": "Preserve the custom operator layout contract through Inductor lowering",
+  "applies_when": "A custom operator assumes eager input strides, especially a KV-cache or attention kernel compiled inside a full Inductor graph and routed through FALLBACK_ALLOW_LIST.",
+  "lesson": "Eager contiguous inputs do not guarantee the compiled operator receives the same layout. Compare the actual strides at the operator boundary after the producer's matmul, RoPE and transpose chain. In a Torch-only BF16 control on RTX 5090 with Torch 2.13.0+cu130 and Triton 3.7.1, implicit fallback retained strides (1024,128,1), an untagged allow-listed op received (128,8192,1), and an explicit needs_exact_strides tag restored eager strides. Audit the actual registration helper and kernel addressing before choosing a layout tag or supporting more strides. Use a real affected model entrypoint separately when qualifying a serving repair; a stride witness alone is not a model result.",
+  "avoid_when": "Preserve an operator's intentional flexible-layout or fixed-stride-order contract. Exact strides can require copies and are not a universal performance optimization. Do not extrapolate this Torch-only control to all Torch versions, ROCm, the exact vLLM PR, all kernels or model accuracy. The additional unrelated-tag control was monitor-aborted and was not accepted as a completed check. Existing-author PR62924 owns the vLLM repair; this lesson does not authorize a competing PR or establish evidence-selection benefit.",
+  "evidence": [
+    {
+      "url": "https://github.com/vllm-project/vllm/issues/62865",
+      "note": "Reporter supplies the custom-op layout reproducer and Transformers-backend failure, distinguishing full compilation from the default split-graph path. Those model results are the reporter's evidence, not our independent qualification."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/58c41c66c637b433a729d935abb0dbd93573eae7/vllm/utils/torch_utils.py",
+      "note": "Existing-author candidate defaults registration to exact strides only when no layout tag is present and retains explicit alternative tags. Source review, not execution of that helper or its tests in our control."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/pull/62924#issuecomment-6356711509",
+      "note": "Independent contributor reports the three completed fresh-container RTX5090/Torch2.13 stride controls, excludes a fourth monitor-interrupted control, and explicitly makes no full vLLM, model, accuracy or performance claim."
+    }
+  ],
+  "status": "validated"
+}
