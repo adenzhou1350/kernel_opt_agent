@@ -1,0 +1,22 @@
+{
+  "id": "quantization-scale-axis-contract",
+  "title": "Identify a quantization scale's axis before demanding matching padded dimensions",
+  "applies_when": "A quantized operator pads a weight dimension but leaves a scale tensor unchanged, especially per-channel INT8 MoE down-projection weights and post-load layout checks.",
+  "lesson": "Follow the real scale producer, quantization scheme and consumer indexing, not matching last dimensions by appearance. At vLLM 284c0317, compressed-tensors INT8 MoE permits channelwise weights and dynamic per-token activations. It creates W2 [E,H,I] with scale [E,H,1]: H is the output-channel axis and I is the reduction axis. CPUExpertsInt8 pads I to a multiple of 32 but need not enlarge that per-output scale. The C++ down projection reads w2s + expert_id*K + output_block_offset, with K the hidden/output width. In a scoped exact-AST producer/padding/parameter-helper control, real Torch CPU tensors at I=31/32/33/65 retain W2 scale shape/object/storage/content and the same dequantized matmul after zero extension; W13's output scales do grow with its padded output rows. This counters the specific demand that W2 scale's last dimension equal padded I.",
+  "avoid_when": "Blockwise/groupwise scales may depend on the reduction dimension and require a different rule. Do not apply this result to another quantization key, backend, activation, packed layout or direct bypass. The native control extracts unchanged functions and supplies explicit configuration/metadata adapters; it does not execute the full vLLM package, backend admission, VNNI/AMX kernel, real model or an accuracy/performance test. A GPU-profile image supplies Torch and initializes its safety guard, but tested tensor operations are CPU-only. Preserve the original unverified lead rather than rescoring it as a model success or a cost-saving result.",
+  "evidence": [
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/284c0317c486fc605b915a39a540053ec3a1b59f/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe_w8a8_int8.py",
+      "note": "Exact Git blob c0f12293da92c03157162f723993fa6668e50891 rejects non-channelwise/static-input combinations and creates W2 scale [E,H,1]. The original create_weights method was exercised in the scoped CPU control, not replaced by a handwritten shape model."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/284c0317c486fc605b915a39a540053ec3a1b59f/csrc/cpu/sgl-kernels/moe_int8.cpp#L665-L666",
+      "note": "Down-projection scale addressing follows the hidden/output width rather than intermediate reduction width. C++ source inspection only; no AMX/VNNI kernel execution."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/284c0317c486fc605b915a39a540053ec3a1b59f/vllm/model_executor/layers/fused_moe/experts/cpu_moe.py#L113-L153",
+      "note": "Shared padding adds W2 reduction columns and W13 output rows; the latter's per-output scales are padded while W2 per-output scales remain unchanged. The unchanged helper and actual replace_parameter implementation were used in four passing extracted-function Torch controls, with zero skips."
+    }
+  ],
+  "status": "counterexample"
+}
