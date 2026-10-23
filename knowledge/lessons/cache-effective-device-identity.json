@@ -1,10 +1,22 @@
 {
   "id": "cache-effective-device-identity",
   "title": "Resolve the effective device before capability caching or CUDA stream dispatch",
-  "applies_when": "A capability, current_stream or kernel-dispatch helper defaults to the current accelerator, especially when tensors may be on a noncurrent device or the current device can change.",
+  "applies_when": "A capability, current_stream, tensor factory or kernel-dispatch helper uses an implicit device, especially when tensors may be on a noncurrent device or the enclosing construction context can change.",
   "lesson": "First establish whether a supported caller can change the current device or pass a noncurrent-device tensor; a hypothetical arbitrary device switch is not production reachability. A no-argument cache stores the first current-device answer, not a device-independent fact. Resolve the actual device index before the per-device cache and route tensor-dependent dispatch from the tensor's device when that caller contract permits it. Test both switch orders with differing capabilities, explicit-device calls, cache reuse and the non-CUDA fallback. CUDA current-stream state is also per device: current_stream() queries the process's current device, not the input tensor's device. Use distinct nondefault streams on two devices to expose that mismatch; default stream handles alone can hide it. Check same-device and explicit-stream controls and record the backend's device_id with the stream. A mocked query or intercepted launch can establish selection semantics; keep native operator qualification separate.",
   "avoid_when": "A one-device-per-rank worker can deliberately set its current device before model construction and use no-argument stream queries throughout that rank. TP across processes alone does not establish a noncurrent-device call. Inspect initialization and actual consumers before proposing a fix; changing one stream argument may leave current-device native allocations or graph capture inconsistent. Even homogeneous GPUs can have different current streams. A stable CUDA ordinal is a process-local identity, not a portable hardware profile or live resource allocation. Simulated capability queries do not prove mixed-hardware execution, PDL compatibility or performance. Real Torch stream selection with the final backend call intercepted is not TileLang kernel numerical or launch-context qualification. A device-scoped query alone does not establish that the native context, allocations and kernel handles agree. Preserve explicit caller streams; CPU, no-tensor and mixed-device input paths need their own contracts.",
   "evidence": [
+    {
+      "url": "https://docs.pytorch.org/docs/2.14/tensor_attributes.html#torch.device",
+      "note": "torch.device is also a context manager that sets the default allocation device. Unlike torch.cuda.device, it affects device-less factories; an explicit non-None device overrides it. Inspect the enclosing caller before treating torch.empty without device= as CPU allocation. Documentation only, not an operator or GPU test."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/432b1003f8ea7c871750f27bc82815a7ad0252d5/vllm/model_executor/model_loader/base_loader.py#L64-L85",
+      "note": "BaseModelLoader.load_model constructs target_device and runs create_model inside with target_device; create_model invokes initialize_model. The AMD DeepseekV4Model's implicit topk/candidate-buffer factories therefore inherit that construction context on this path. Missing device= alone is not a supported CPU-buffer defect; alternative loaders need separate inspection. Static caller evidence, no native ROCm run."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/04935caeba8bc17ca162eee0497858c192ecc715/flashinfer/experimental/cake_dsa_train/csrc/cake_dsa_h64_train/sm_103a/cake_dsa_h64_train_5b1accdf3cbb4915bed7_binding.cu#L618-L620",
+      "note": "Run constructs ScopedCudaDevice from the input device before attribute caching. Its constructor checks cudaSetDevice success and restores the previous device. An isolated cache excerpt misses this guard; source evidence refutes that missing-selection premise, not all cached errors or CUDA correctness."
+    },
     {
       "url": "https://github.com/InternLM/lmdeploy/blob/110965c7706bbbeb31e21df5d7ef2531fe01c935/lmdeploy/pytorch/kernels/cuda/utils.py#L60-L64",
       "note": "The original supports_pdl has a no-argument lru_cache and queries the current CUDA device, exposing the stale-answer mechanism after a device switch."
