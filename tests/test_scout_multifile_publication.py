@@ -87,7 +87,10 @@ class MultifilePublicationTests(unittest.TestCase):
         self.notes.write_text(json.dumps(notes + [foreign]))
         result = self.read("z-wanted")
         self.assertEqual(result["items"][0]["url"], self.url)
-        self.assertEqual(result["items"][0]["source_paths"], ["src/a.ts", "src/b.ts"])
+        # Matching evidence must stay visible before the two-path display cap.
+        self.assertEqual(
+            result["items"][0]["source_paths"], ["src/z-wanted.ts", "src/a.ts"]
+        )
         self.assertEqual(len(result["items"]), 2)
         self.assertNotIn("quality", result["items"][0])
 
