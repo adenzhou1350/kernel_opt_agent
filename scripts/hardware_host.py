@@ -5,8 +5,11 @@ user-space identities can legitimately differ under MIG/proxies/virtualization;
 a difference needs interpretation, not automatic relabeling or bypass.
 """
 
+from itertools import islice
+import os
 from pathlib import Path
 import re
+import stat
 import sys
 
 
@@ -30,17 +33,51 @@ def read_text(path):
         return None
 
 
+def rdma_device_visibility(dev_root):
+    """Observe the current namespace without opening a device or loading verbs."""
+    directory = Path(dev_root) / "infiniband"
+    result = {
+        "status": "UNAVAILABLE", "directory": str(directory),
+        "nodes": [], "truncated": False,
+        "boundary": "Device metadata only: permissions, cgroup access, verbs enumeration, registration and effective transport remain untested. An absent standard device directory does not prove the physical host lacks RDMA.",
+    }
+    try:
+        with os.scandir(directory) as entries:
+            visible = list(islice(entries, 129))
+        result["truncated"] = len(visible) > 128
+        for entry in sorted(visible[:128], key=lambda item: item.name):
+            row = {"name": entry.name}
+            try:
+                info = entry.stat(follow_symlinks=False)
+                row["kind"] = (
+                    "character_device" if stat.S_ISCHR(info.st_mode)
+                    else "symlink" if stat.S_ISLNK(info.st_mode) else "other"
+                )
+                row["mode_octal"] = format(stat.S_IMODE(info.st_mode), "04o")
+            except OSError as exc:
+                row.update(kind="unavailable", error=type(exc).__name__)
+            result["nodes"].append(row)
+        result["status"] = "OBSERVED"
+    except FileNotFoundError:
+        result["status"] = "DIRECTORY_ABSENT"
+    except OSError as exc:
+        result["error"] = type(exc).__name__
+    return result
+
+
 def inspect_host(
     devices,
     *,
     proc_root=Path("/proc/driver/nvidia"),
     sys_root=Path("/sys"),
+    dev_root=Path("/dev"),
     platform=None,
 ):
     result = {
         "status": "UNAVAILABLE",
         "devices": [],
         "rdma_ports": [],
+        "rdma_device_visibility": {"status": "NOT_QUERIED"},
         "unknowns": [
             "PCIe/RDMA link rates are metadata, not measured payload throughput or transport reachability.",
             "Kernel/user-space identity agreement is a cross-check, not physical-device attestation; MIG, proxies and visibility may change identity scope.",
@@ -51,6 +88,7 @@ def inspect_host(
             "Linux proc/sysfs metadata is unavailable on this platform."
         )
         return result
+    result["rdma_device_visibility"] = rdma_device_visibility(dev_root)
     result["kernel_driver"] = read_text(proc_root / "version")
     for device in devices:
         bus = pci_address(device.get("pci_bus_id"))

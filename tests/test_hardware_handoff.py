@@ -106,6 +106,21 @@ class HardwareHandoffTests(unittest.TestCase):
         rendered = handoff.render_handoff(report)
         self.assertIn("No numerical capacity-rate or calibration evidence", rendered)
         self.assertIn("UNKNOWN", rendered)
+        self.assertEqual(report["host_rdma_device_observation"]["status"], "NOT_QUERIED")
+
+    def test_sysfs_ports_and_namespace_device_absence_survive_handoff(self):
+        data = snapshot()
+        data["host_metadata"] = {
+            "rdma_ports": [{"device": "mlx5_0", "state": "4: ACTIVE", "rate": "800 Gb/sec"}],
+            "rdma_device_visibility": {"status": "DIRECTORY_ABSENT", "nodes": [],
+                                       "boundary": "No device or transport was opened."},
+        }
+        report = self.report(data)
+        self.assertEqual(report["host_rdma_port_observations"][0]["state"], "4: ACTIVE")
+        self.assertEqual(report["host_rdma_device_observation"]["status"], "DIRECTORY_ABSENT")
+        self.assertIn("DIRECTORY_ABSENT", handoff.render_handoff(report))
+        data["host_metadata"]["rdma_device_visibility"]["status"] = "CHANGED"
+        self.assertEqual(report["host_rdma_device_observation"]["status"], "DIRECTORY_ABSENT")
 
     def test_host_identity_difference_survives_fresh_agent_handoff(self):
         data = snapshot()

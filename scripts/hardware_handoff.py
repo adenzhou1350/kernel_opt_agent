@@ -203,6 +203,9 @@ def build_handoff(profile, *, profile_sha256, device_uuid=None, rates=None):
         "host_device_observations": copy.deepcopy(host_device),
         "host_kernel_driver_observation": host.get("kernel_driver"),
         "host_rdma_port_observations": copy.deepcopy(host.get("rdma_ports", [])),
+        "host_rdma_device_observation": copy.deepcopy(
+            host.get("rdma_device_visibility", {"status": "NOT_QUERIED"})
+        ),
         "cuda_driver_version": driver.get("driver_version"),
         "cuda_visible_devices": driver.get("environment", {}).get(
             "CUDA_VISIBLE_DEVICES"
@@ -331,6 +334,7 @@ def render_handoff(report):
             "host_device_observations",
             "host_kernel_driver_observation",
             "host_rdma_port_observations",
+            "host_rdma_device_observation",
             "cuda_driver_version",
             "cuda_visible_devices",
             "additional_cuda_attributes",

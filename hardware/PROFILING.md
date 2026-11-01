@@ -48,7 +48,16 @@ Use `handoff --format json` for a programmatic consumer.
   visibility restrictions may limit what can be observed.
 - On Linux, `--cuda` also reads available proc/sysfs metadata: kernel UUID at
   the same PCI address, PCIe link speed/width and NUMA node, and RDMA port state
-  and advertised rate. It records the loaded CUDA driver library path. A
+  and advertised rate. It separately inventories up to 128 entries under
+  `/dev/infiniband` in the current namespace, preserving absent, unavailable and
+  truncated observations. Entries are classified from metadata without following
+  entry symlinks or opening devices; a regular file named `uverbs0` is not a verbs
+  device. Sysfs ports can be visible while a container has no device nodes.
+  Even character-device presence does not prove permission/cgroup access,
+  ABI compatibility, registration or effective transport. Verbs/runtime checks
+  remain an explicit next step for a communication workload, not an automatic
+  context or transfer during inventory.
+  It records the loaded CUDA driver library path. A
   kernel/user-space UUID difference is a mapping question (for example a proxy
   or partition), not proof of a broken device. Keep the runtime observations,
   but resolve the mapping before calling them physical-card capacities.
