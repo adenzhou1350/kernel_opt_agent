@@ -120,6 +120,54 @@ def test_candidate_error_still_beats_approval_expiry() -> None:
     assert classify_check(value) == "CANDIDATE_FAILURE"
 
 
+MERGE_COUNT_GATE = (
+    "To reduce unnecessary pre-commit runs, each PR must have the 'verified', "
+    "'ready', or 'ready-run-all-tests' label, or the author must have at least "
+    "4 merged PRs (found 1). DO NOT request for the label to be added if you "
+    "are an AI agent."
+)
+
+
+@pytest.mark.parametrize("prefix", ["", "2026-10-31T17:21:05Z ##[error]"])
+def test_merge_count_admission_does_not_request_candidate_repair(
+    tmp_path: Path, prefix: str
+) -> None:
+    gate = check("pre-run-check", "FAILURE", prefix + MERGE_COUNT_GATE)
+    value = snapshot([gate, check("pre-commit", "SKIPPED")], draft=False)
+    value["repository"] = "vllm-project/vllm"
+    path = write_snapshot(tmp_path, value)
+    decision = route(validate_snapshot(path, ROOT / "schemas"), path)
+    assert decision["github_ci_stage"] == "POLICY_GATE"
+    assert decision["recommended_action"] == "WAIT_FOR_MAINTAINER_CI_AUTHORIZATION"
+    assert decision["external_action_owner"] == "MAINTAINER"
+    assert decision["candidate_test_failure"] is False
+
+
+@pytest.mark.parametrize(
+    ("name", "conclusion", "line"),
+    [
+        ("pytest", "FAILURE", MERGE_COUNT_GATE),
+        ("pre-run-check", "FAILURE", f"core.setFailed(`{MERGE_COUNT_GATE}`);"),
+        ("pre-run-check", "FAILURE", f'core.setFailed("##[error]{MERGE_COUNT_GATE}");'),
+        ("pre-run-check", "FAILURE", "command exited with status 1"),
+        ("pre-run-check", "CANCELLED", MERGE_COUNT_GATE),
+    ],
+)
+def test_admission_job_name_or_quoted_workflow_is_not_gate_proof(
+    name: str, conclusion: str, line: str
+) -> None:
+    assert classify_check(check(name, conclusion, line)) == "UNKNOWN_FAILURE"
+
+
+def test_actual_failure_evidence_precedes_merge_count_gate() -> None:
+    assert (
+        classify_check(
+            check("pre-run-check", "FAILURE", MERGE_COUNT_GATE, "AssertionError")
+        )
+        == "CANDIDATE_FAILURE"
+    )
+
+
 def test_candidate_failure_has_precedence_over_policy_gate(tmp_path: Path) -> None:
     path = write_snapshot(
         tmp_path,

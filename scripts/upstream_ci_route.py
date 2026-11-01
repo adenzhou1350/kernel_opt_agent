@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -56,6 +57,23 @@ def parse_time(value: str) -> datetime:
     return parsed
 
 
+def has_merge_count_gate_error(check: dict) -> bool:
+    """Recognize the emitted admission error, not a printed workflow script."""
+    if check["name"] != "pre-run-check" or check["conclusion"] != "FAILURE":
+        return False
+    for line in check["evidence_lines"]:
+        message = re.sub(
+            r"^(?:\d{4}-[0-9T:.\-]+Z\s+)?##\[error\]", "", line.strip()
+        ).casefold()
+        if (
+            message.startswith("to reduce unnecessary pre-commit runs, each pr must have ")
+            and "label, or the author must have at least " in message
+            and " merged prs (found " in message
+        ):
+            return True
+    return False
+
+
 def classify_check(check: dict) -> str:
     status = check["status"]
     conclusion = check["conclusion"]
@@ -73,7 +91,9 @@ def classify_check(check: dict) -> str:
         return "CANDIDATE_FAILURE"
     if any(marker in evidence for marker in INFRASTRUCTURE_FAILURE_MARKERS):
         return "INFRASTRUCTURE_FAILURE"
-    if any(marker in evidence for marker in POLICY_GATE_MARKERS):
+    if any(marker in evidence for marker in POLICY_GATE_MARKERS) or (
+        has_merge_count_gate_error(check)
+    ):
         return "POLICY_GATE"
     unrelated = check.get("unrelated_failure_evidence")
     if unrelated and paths_are_disjoint(
