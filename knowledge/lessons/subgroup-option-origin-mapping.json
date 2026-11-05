@@ -1,0 +1,26 @@
+{
+  "id": "subgroup-option-origin-mapping",
+  "title": "Resolve each flattened subgroup's options from its original optimizer group",
+  "applies_when": "A distributed optimizer accepts per-parameter-group algorithm options such as Muon ns_method, filters frozen groups, and splits groups into smaller flat subgroups before applying updates.",
+  "lesson": "An optimizer-wide field assigned while iterating groups silently makes the last group win. Use the subgroup-to-original-group mapping when consuming each option; the current subgroup index is not necessarily the optimizer group index. Preserve supported mixed group configurations instead of banning them to make the adapter consistent. Compare actual training updates against the supplied unpartitioned optimizer in both mixed-option orders, with uniform and default controls, a frozen leading group, and small subgroups. Inspect rank-count execution too: a distributed test that loops over [1, 2] can fail at one rank before ever reaching two ranks.",
+  "avoid_when": "Some options are explicitly required to be optimizer-wide; preserve those documented consistency checks. Constructor-time state reconstruction, offload and checkpoint restore have separate contracts. A passing uniform-method case cannot disprove a last-group-wins bug. Two-step update comparisons do not establish long training convergence, performance, all optimizers or all distributed layouts.",
+  "evidence": [
+    {
+      "url": "https://github.com/deepspeedai/DeepSpeed/blob/c6af3faf29101ccd7efba77df4b0768058ff1f4a/deepspeed/runtime/engine.py#L2392",
+      "note": "Pinned Engine code preserves ns_method as a Muon group option, rather than imposing a single global method."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/DeepSpeed/blob/7a981c936da5b11a6d70463f903f9e0b549a7401/deepspeed/runtime/zero/stage3.py#L1641",
+      "note": "Proposed repair consumes ns_method through sub_group_to_group_id; it removes the global overwritten field without changing the numerical algorithm. This fork commit is not an upstream merge."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/DeepSpeed/blob/7a981c936da5b11a6d70463f903f9e0b549a7401/tests/unit/v1/ops/muon/test_muon_zero3_grad_accum.py#L110",
+      "note": "Reproducible two-step reference comparison covers mixed methods in both orders, uniform/default methods and nontrivial subgroup indexing. Test source supplies a reproduction, not a public CI result or a performance measurement."
+    },
+    {
+      "url": "https://github.com/deepspeedai/DeepSpeed/blob/c6af3faf29101ccd7efba77df4b0768058ff1f4a/tests/unit/common.py#L345",
+      "note": "The distributed runner executes rank counts sequentially; an assertion failure in the first count terminates that pytest case before later counts."
+    }
+  ],
+  "status": "validated"
+}
