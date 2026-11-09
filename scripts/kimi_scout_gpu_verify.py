@@ -163,6 +163,18 @@ def snapshot(gpu_uuid):
     }
 
 
+def _checked_headroom(sample, gpu_uuid):
+    total, used, free, utilization = (
+        sample[key] for key in ("total_mib", "memory_mib", "free_mib", "utilization")
+    )
+    if (sample["uuid"].lower() != gpu_uuid.lower()
+            or any(type(value) is not int for value in (total, used, free, utilization))
+            or total <= 0 or not 0 <= used <= total or not 0 <= free <= total
+            or not 0 <= utilization <= 100):
+        raise ValueError("invalid GPU identity or counters")
+    return free, utilization
+
+
 def idle_samples(gpu_uuid):
     """Require headroom for a bounded correctness screen; sharing is allowed."""
     samples = []
@@ -170,11 +182,9 @@ def idle_samples(gpu_uuid):
         if index:
             time.sleep(1)
         sample = snapshot(gpu_uuid)
+        free, utilization = _checked_headroom(sample, gpu_uuid)
         samples.append(sample)
-        if (
-            not MIN_HEADROOM_MIB <= sample["free_mib"] <= sample["total_mib"]
-            or sample["utilization"] > MAX_UTILIZATION
-        ):
+        if free < MIN_HEADROOM_MIB or utilization > MAX_UTILIZATION:
             raise RuntimeError(
                 "selected GPU lacks bounded headroom: " + json.dumps(sample)
             )
@@ -202,14 +212,7 @@ class NativeGpuGuard:
 
     def observe(self, phase):
         sample = snapshot(self.uuid)
-        total, used, free, utilization = (
-            sample[key] for key in ("total_mib", "memory_mib", "free_mib", "utilization")
-        )
-        if (sample["uuid"].lower() != self.uuid.lower()
-                or any(type(value) is not int for value in (total, used, free, utilization))
-                or total <= 0 or not 0 <= used <= total or not 0 <= free <= total
-                or not 0 <= utilization <= 100):
-            raise ValueError("invalid GPU identity or counters")
+        free, utilization = _checked_headroom(sample, self.uuid)
         sample = dict(sample, observed_at=time.time(),
                       processes=[[row[0], row[1], row[2][:256]] for row in sample["processes"][:64]],
                       processes_truncated=len(sample["processes"]) > 64,

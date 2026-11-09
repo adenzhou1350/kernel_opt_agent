@@ -141,13 +141,19 @@ class InventoryTests(unittest.TestCase):
             self.assertEqual(sleep.call_args_list, [mock.call(1), mock.call(1)])
         for change in (
             {"free_mib": 6143},
-            {"free_mib": 8193},
             {"utilization": 81},
         ):
             with (
                 self.subTest(change=change),
                 mock.patch.object(verify, "snapshot", return_value={**idle, **change}),
                 self.assertRaisesRegex(RuntimeError, "bounded headroom"),
+            ):
+                verify.idle_samples(GPU)
+        for change in ({"free_mib": 8193}, {"memory_mib": 8193}):
+            with (
+                self.subTest(change=change),
+                mock.patch.object(verify, "snapshot", return_value={**idle, **change}),
+                self.assertRaisesRegex(ValueError, "invalid GPU identity or counters"),
             ):
                 verify.idle_samples(GPU)
 
