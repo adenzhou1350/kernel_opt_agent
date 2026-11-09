@@ -4,6 +4,7 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -114,6 +115,25 @@ class WorklogTests(unittest.TestCase):
     def test_explicit_empty_initial_context_is_rejected(self):
         self.cli("init", "--objective", "A valid objective", "--source", "", expected=2)
         self.assertFalse(self.run.exists())
+
+    def test_copied_notebook_checks_its_own_bundled_evidence(self):
+        self.initialize()
+        artifact = self.run / "evidence" / "test.log"
+        artifact.parent.mkdir()
+        artifact.write_bytes(b"focused test passed\n")
+        state = self.cli("record", "--kind", "correctness", "--summary", "Reviewed result",
+                         "--evidence", str(artifact))
+        self.assertEqual(state["records"][0]["evidence"]["path"], "evidence/test.log")
+        original = self.run
+        self.run = self.root / "copied run"
+        shutil.copytree(original, self.run)
+        copied = self.run / "evidence" / "test.log"
+        self.assertEqual(self.cli("status")["evidence_checks"], [
+            {"record": 1, "path": str(copied), "status": "MATCH"},
+        ])
+        copied.write_bytes(b"changed only in the copy\n")
+        self.assertEqual(self.cli("status")["evidence_checks"][0]["status"], "CHANGED")
+        self.assertEqual(artifact.read_bytes(), b"focused test passed\n")
 
     def test_cli_end_to_end_preserves_context_and_literal_command(self):
         self.initialize("--source", "upstream abc123", "--workload", "batch 1 decode")

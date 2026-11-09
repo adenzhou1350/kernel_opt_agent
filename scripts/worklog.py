@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """A small run notebook. Recorded judgments and file hashes are not test proofs.
 
-Run and evidence paths are resolved relative to the caller's current directory.
+CLI paths are resolved relative to the caller's current directory. Evidence
+inside the notebook is stored relative to that notebook for portable copies.
 Commands are descriptions only; this module never executes them. One writer at
 a time may update a notebook; a busy lock is reported rather than retried.
 """
@@ -182,7 +183,7 @@ def execute(args):
             evidence = entry.get("evidence")
             if evidence is None:
                 continue
-            artifact = Path(evidence["path"])
+            artifact = directory / evidence["path"]
             try:
                 outcome = (
                     "MATCH" if file_hash(artifact) == evidence["sha256"] else "CHANGED"
@@ -242,7 +243,12 @@ def execute(args):
             digest = file_hash(artifact)
             if expected is not None and digest != expected.lower():
                 raise ValueError("evidence SHA-256 differs from the expected digest")
-            evidence = {"path": str(artifact), "sha256": digest}
+            location = (
+                artifact.relative_to(directory).as_posix()
+                if artifact.is_relative_to(directory)
+                else str(artifact)
+            )
+            evidence = {"path": location, "sha256": digest}
         entry = {
             "kind": args.kind,
             "summary": args.summary,

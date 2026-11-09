@@ -63,6 +63,10 @@ When reusing a reviewed result from another tool, add
 `--expect-evidence-sha256 <digest from the original receipt>` to `worklog record`.
 A mismatch leaves the notebook untouched. The digest binds the supplied
 file bytes. Review the recorded source, workload and hardware separately.
+For a portable handoff, put the reviewed evidence inside the run directory
+before recording it. The notebook stores those links relative to its own
+directory. External and previously recorded absolute links keep their
+original locations.
 
 For an agent, point it at [AGENTS.md](AGENTS.md) and the
 [kernel-optimizer skill](skill/kernel-optimizer/SKILL.md). A typical task covers:
