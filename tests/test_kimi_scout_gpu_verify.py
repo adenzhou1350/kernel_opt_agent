@@ -90,7 +90,7 @@ class ReviewedInputsTests(unittest.TestCase):
 class InventoryTests(unittest.TestCase):
     def test_exact_uuid_inventory_and_foreign_gpu_process(self):
         outputs = [
-            f"{GPU}, 2, 32768, 1024, 0\n",
+            f"{GPU}, 2, 32768, 1024, 30811, 0\n",
             "GPU-ffffffff-1111-2222-3333-444444444444, 101, busy\n",
         ]
         with mock.patch.object(
@@ -102,14 +102,16 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(result["index"], 2)
         self.assertEqual(result["total_mib"], 32768)
         self.assertEqual(result["memory_mib"], 1024)
+        self.assertEqual(result["free_mib"], 30811)
         self.assertEqual(result["processes"], [])
         self.assertIn("--id=" + GPU, call.call_args_list[0].args[0])
         self.assertEqual(call.call_args_list[0].args[0][0], "/usr/bin/nvidia-smi")
 
     def test_unknown_metrics_and_uuid_mismatch_rejected(self):
         for text in (
-            f"{GPU}, 0, 32768, N/A, 0\n",
-            "GPU-other, 0, 32768, 0, 0\n",
+            f"{GPU}, 0, 32768, N/A, 30000, 0\n",
+            f"{GPU}, 0, 32768, 100, N/A, 0\n",
+            "GPU-other, 0, 32768, 0, 30000, 0\n",
         ):
             with (
                 self.subTest(text=text),
@@ -126,6 +128,7 @@ class InventoryTests(unittest.TestCase):
             "index": 0,
             "total_mib": 8192,
             "memory_mib": 1024,
+            "free_mib": 6144,
             "utilization": 35,
             "processes": [[GPU, "77", "other"]],
         }
@@ -137,7 +140,8 @@ class InventoryTests(unittest.TestCase):
             self.assertEqual(probe.call_count, 3)
             self.assertEqual(sleep.call_args_list, [mock.call(1), mock.call(1)])
         for change in (
-            {"memory_mib": 2049},
+            {"free_mib": 6143},
+            {"free_mib": 8193},
             {"utilization": 81},
         ):
             with (
@@ -332,13 +336,13 @@ class NativeGuardTests(unittest.TestCase):
         guard = verify.NativeGpuGroupGuard([GPU, other], 6144)
         def sample(uuid):
             return {**self.sample(), "uuid": uuid,
-                    "memory_mib": 32000 if uuid == other else 0}
+                    "free_mib": 768 if uuid == other else 30720}
         with mock.patch.object(verify, "snapshot", side_effect=sample):
             self.assertIsNotNone(guard("postflight"))
         self.assertTrue(all(g.evidence["postflight"] is not None for g in guard.guards))
 
     def sample(self):
-        return dict(uuid=GPU, index=0, total_mib=32768, memory_mib=1024,
+        return dict(uuid=GPU, index=0, total_mib=32768, memory_mib=1024, free_mib=30811,
                     utilization=0, processes=[[GPU, "123", "existing-user-task"]])
 
     def test_three_admission_samples_record_shared_processes_and_throttle_running(self):
@@ -356,7 +360,7 @@ class NativeGuardTests(unittest.TestCase):
             self.assertEqual(probe.call_count, 3)
             self.assertIsNone(guard("postflight"))  # Must not reuse a throttled sample.
             self.assertEqual(probe.call_count, 4)
-        self.assertEqual(guard.evidence["minimum_free_mib"], 31744)
+        self.assertEqual(guard.evidence["minimum_free_mib"], 30811)
 
     def test_own_gpu_utilization_is_not_a_running_or_postflight_stop(self):
         guard = verify.NativeGpuGuard(GPU)
@@ -379,8 +383,8 @@ class NativeGuardTests(unittest.TestCase):
 
     def test_busy_admission_and_lost_reserve_return_a_stop_reason(self):
         for phase, changes in (("admission", {"utilization": 81}),
-                               ("running", {"memory_mib": 32768}),
-                               ("postflight", {"memory_mib": 32768})):
+                               ("running", {"free_mib": 6143}),
+                               ("postflight", {"free_mib": 6143})):
             value = self.sample()
             value.update(changes)
             guard = verify.NativeGpuGuard(GPU)
@@ -391,6 +395,7 @@ class NativeGuardTests(unittest.TestCase):
     def test_invalid_identity_telemetry_or_weaker_reserve_cannot_be_accepted(self):
         for field, value in (("uuid", "GPU-other"), ("total_mib", 0),
                              ("memory_mib", -1), ("memory_mib", 32769),
+                             ("free_mib", -1), ("free_mib", 32769), ("free_mib", True),
                              ("utilization", 101), ("total_mib", True)):
             sample = self.sample()
             sample[field] = value
