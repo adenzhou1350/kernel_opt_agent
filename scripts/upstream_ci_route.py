@@ -103,6 +103,25 @@ def classify_check(check: dict) -> str:
     return "UNKNOWN_FAILURE"
 
 
+def readthedocs_failed_precheck_url(check: dict) -> str | None:
+    """Extract the dependency only from an observed docs-build skip."""
+    context = re.fullmatch(r"docs/readthedocs\.org:([a-z0-9_-]+)", check["name"])
+    if not context or check["conclusion"] != "FAILURE" or not re.fullmatch(
+        rf"https://app\.readthedocs\.org/projects/{context[1]}/builds/[0-9]+/?",
+        check["details_url"],
+    ):
+        return None
+    lines = {line.strip() for line in check["evidence_lines"]}
+    if not {
+        "pre-commit/pre-run-check conclusion: failure",
+        "pre-commit/pre-run-check did not pass; skipping docs build.",
+    } <= lines:
+        return None
+    prefix = "pre-commit/pre-run-check failure reason: "
+    urls = [line.removeprefix(prefix) for line in lines if line.startswith(prefix)]
+    return urls[0] if len(urls) == 1 else None
+
+
 def paths_are_disjoint(candidate_paths: list[str], failed_paths: list[str]) -> bool:
     def normalized(path: str) -> tuple[str, ...]:
         return tuple(
@@ -151,6 +170,23 @@ def route(snapshot: dict, snapshot_path: Path) -> dict:
         }
         for check in snapshot["checks"]
     ]
+    repository = re.escape(snapshot["repository"])
+    admission_urls = {
+        check["details_url"]
+        for check, result in zip(snapshot["checks"], classified, strict=True)
+        if result["classification"] == "POLICY_GATE"
+        and has_merge_count_gate_error(check)
+        and re.fullmatch(
+            rf"https://github\.com/{repository}/actions/runs/[0-9]+/job/[0-9]+",
+            check["details_url"],
+        )
+    }
+    for check, result in zip(snapshot["checks"], classified, strict=True):
+        if (
+            result["classification"] == "UNKNOWN_FAILURE"
+            and readthedocs_failed_precheck_url(check) in admission_urls
+        ):
+            result["classification"] = "POLICY_GATE"
     counts = Counter(item["classification"] for item in classified)
     normalized_counts = {
         key.casefold(): counts[key]

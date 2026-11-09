@@ -144,6 +144,52 @@ def test_merge_count_admission_does_not_request_candidate_repair(
 
 
 @pytest.mark.parametrize(
+    ("scenario", "expected"),
+    [
+        ("exact", "POLICY_GATE"),
+        ("different_job", "UNKNOWN_FAILURE"),
+        ("skip_unproven", "UNKNOWN_FAILURE"),
+        ("gate_unproven", "UNKNOWN_FAILURE"),
+        ("other_repository", "UNKNOWN_FAILURE"),
+        ("independent_failure", "CANDIDATE_FAILURE"),
+    ],
+)
+def test_readthedocs_skip_requires_the_exact_linked_policy_gate(
+    tmp_path: Path, scenario: str, expected: str
+) -> None:
+    repo = "other/project" if scenario == "other_repository" else "vllm-project/vllm"
+    gate_url = f"https://github.com/{repo}/actions/runs/40503923881/job/122188281540"
+    gate = check("pre-run-check", "FAILURE", MERGE_COUNT_GATE)
+    gate["details_url"] = gate_url
+    docs = check(
+        "docs/readthedocs.org:vllm",
+        "FAILURE",
+        "pre-commit/pre-run-check conclusion: failure",
+        "pre-commit/pre-run-check did not pass; skipping docs build.",
+        "pre-commit/pre-run-check failure reason: " + gate_url,
+    )
+    docs["details_url"] = "https://app.readthedocs.org/projects/vllm/builds/35441834/"
+    if scenario == "different_job":
+        docs["evidence_lines"][-1] += "1"
+    elif scenario == "skip_unproven":
+        del docs["evidence_lines"][1]
+    elif scenario == "gate_unproven":
+        gate["evidence_lines"] = ["command exited with status 1"]
+    elif scenario == "independent_failure":
+        docs["evidence_lines"].append("compilation failed")
+    value = snapshot([docs, gate], draft=False)
+    value["repository"] = "vllm-project/vllm"
+    path = write_snapshot(tmp_path, value)
+    decision = route(validate_snapshot(path, ROOT / "schemas"), path)
+    assert decision["classified_checks"][0]["classification"] == expected
+    assert decision["github_ci_stage"] == expected
+    assert decision["only_policy_gate_failures"] == (expected == "POLICY_GATE")
+    if scenario == "exact":
+        assert decision["external_action_owner"] == "MAINTAINER"
+        assert decision["recommended_action"] == "WAIT_FOR_MAINTAINER_CI_AUTHORIZATION"
+
+
+@pytest.mark.parametrize(
     ("name", "conclusion", "line"),
     [
         ("pytest", "FAILURE", MERGE_COUNT_GATE),
