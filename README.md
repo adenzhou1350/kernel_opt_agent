@@ -59,6 +59,10 @@ The notebook links and hashes evidence automatically. It does not execute the
 recorded command, infer missing measurements, or certify a PR as Ready. Change
 the source/workload/hardware descriptions to the actual experiment before
 interpreting results. Unknown values remain explicit when starting discovery.
+When reusing a reviewed result from another tool, add
+`--expect-evidence-sha256 <digest from the original receipt>` to `worklog record`.
+A mismatch leaves the notebook untouched. The digest binds the supplied
+file bytes. Review the recorded source, workload and hardware separately.
 
 For an agent, point it at [AGENTS.md](AGENTS.md) and the
 [kernel-optimizer skill](skill/kernel-optimizer/SKILL.md). A typical task covers:

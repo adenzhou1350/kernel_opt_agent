@@ -93,6 +93,24 @@ class WorklogTests(unittest.TestCase):
     def initialize_again(self):
         return self.cli("init", "--objective", "Different objective", expected=2)
 
+    def test_external_evidence_digest_is_required_when_supplied(self):
+        self.initialize()
+        artifact = self.evidence("external-result.json", b'{"result":"PASS"}\n')
+        digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+        args = ("--kind", "correctness", "--summary", "Reviewed external result")
+        original = self.path.read_bytes()
+        for flags in (
+            ("--expect-evidence-sha256", digest),
+            ("--evidence", str(artifact), "--expect-evidence-sha256", "bad"),
+            ("--evidence", str(artifact), "--expect-evidence-sha256", "0" * 64),
+        ):
+            self.cli("record", *args, *flags, expected=2)
+            self.assertEqual(self.path.read_bytes(), original)
+        accepted = self.cli("record", *args, "--evidence", str(artifact),
+                            "--expect-evidence-sha256", digest.upper())
+        self.assertEqual(accepted["records"][0]["evidence"]["sha256"], digest)
+        self.assertEqual(self.cli("status")["evidence_checks"][0]["status"], "MATCH")
+
     def test_explicit_empty_initial_context_is_rejected(self):
         self.cli("init", "--objective", "A valid objective", "--source", "", expected=2)
         self.assertFalse(self.run.exists())

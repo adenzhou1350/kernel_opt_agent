@@ -228,12 +228,21 @@ def execute(args):
             else state[field]
             for field in CONTEXT
         }
+        expected = args.expect_evidence_sha256
+        if expected is not None:
+            if args.evidence is None:
+                raise ValueError("--expect-evidence-sha256 requires --evidence")
+            if not re.fullmatch(r"[0-9a-fA-F]{64}", expected):
+                raise ValueError("expected evidence SHA-256 must be 64 hexadecimal characters")
         evidence = None
         if args.evidence is not None:
             artifact = Path(args.evidence).expanduser().resolve()
             if artifact == path:
                 raise ValueError("run.json cannot be its own evidence")
-            evidence = {"path": str(artifact), "sha256": file_hash(artifact)}
+            digest = file_hash(artifact)
+            if expected is not None and digest != expected.lower():
+                raise ValueError("evidence SHA-256 differs from the expected digest")
+            evidence = {"path": str(artifact), "sha256": digest}
         entry = {
             "kind": args.kind,
             "summary": args.summary,
@@ -268,6 +277,9 @@ def main(argv=None):
     record.add_argument("--summary", required=True)
     record.add_argument(
         "--evidence", help="existing file; required except for decisions"
+    )
+    record.add_argument(
+        "--expect-evidence-sha256", help="require the external evidence digest before recording"
     )
     record.add_argument(
         "--command", help="literal reproduction command; never executed"
