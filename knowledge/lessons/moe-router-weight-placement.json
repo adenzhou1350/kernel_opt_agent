@@ -1,0 +1,22 @@
+{
+  "id": "moe-router-weight-placement",
+  "title": "Use prescaled inputs to verify MoE router weight placement",
+  "applies_when": "A modular fused MoE prepare stage can apply router weights before a nonlinear expert, while a quantized expert kernel also accepts routing weights for its output reduction.",
+  "lesson": "Trace the actual prepare, wrapper and backend arguments together. For a supported top-1 input-weighting route, compare (x,w,input=True) with (x*w,ones,input=False) using the same quantizer, expert and activation, with a nonunit w and nonzero reference. Retain unit-weight and ordinary output-weighting controls. If the backend reapplies w to the already prescaled expert output, the result is w*f(w*x). A nonlinear expert generally gives w*f(w*x) different from w^2*f(x), so a squared-weight comparison against the unscaled input can miss the mechanism. Test each supported quantization mode independently.",
+  "avoid_when": "Check whether a monolithic backend owns routing internally and whether the supported dispatcher admits input weighting. The recorded B300 control covers a modular NVFP4 top-1 component with static and per-token scales. End-to-end model accuracy, parallel routing and throughput require separate evidence.",
+  "evidence": [
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/90309f6b742cdb1d6305778b81063918cf61be81/vllm/model_executor/layers/fused_moe/prepare_finalize/no_dp_ep.py#L63-L84",
+      "note": "Pinned prepare branch multiplies the input by the route weight and constrains input weighting to top-1."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/90309f6b742cdb1d6305778b81063918cf61be81/vllm/model_executor/layers/fused_moe/experts/trtllm_nvfp4_moe.py#L350-L359",
+      "note": "The modular FlashInfer call forwards top-k weights with the already prepared activations."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/pull/64047",
+      "note": "Bounded native B300 comparison retained four healthy controls and two affected assertions. Original failed the two affected assertions; repaired wrapper passed all six."
+    }
+  ],
+  "status": "validated"
+}
