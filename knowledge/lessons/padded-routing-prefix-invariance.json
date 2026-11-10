@@ -1,0 +1,18 @@
+{
+  "id": "padded-routing-prefix-invariance",
+  "title": "Check prefix and local rank together when padded routing tiles overlap",
+  "applies_when": "A sparse MoE routing or gather/scatter kernel uses a power-of-two tile extent with a shorter logical stride, so adjacent programs can handle the same valid flattened index.",
+  "lesson": "Trace the prefix producer and the local keyed scan. For an element i of expert e, the exclusive prefix counts occurrences before the logical block start and the local rank counts occurrences from that start up to i. Their sum is the same global rank for every program that covers i. Check both scatter destination and written value against an independent stable-sort reference. Use multi-block non-power-of-two cases, a power-of-two control and at least one perturbation of the prefix convention to show the oracle distinguishes wrong ranks. Inspect native scheduling and measure duplicate traffic separately if those questions matter.",
+  "avoid_when": "The identity assumes valid exclusive prefixes, consistent sentinel filtering, the same logical order and the same output offsets. The Triton 3.6 compatibility source was evaluated with a newer core interpreter and a scoped compiled B300 routing fixture. Equal indices in these cells leave other runtimes, arbitrary concurrent scheduling and performance unqualified.",
+  "evidence": [
+    {
+      "url": "https://github.com/triton-lang/triton/blob/7c56a5e40f7fd928dfd5c72902d5def0097db73a/python/triton_kernels/triton_kernels/tensor_details/bitmatrix.py#L76-L103",
+      "note": "The producer subtracts each block count from its cumulative count to form the exclusive prefix."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/8db73f26c16afa748e9796e37d60f2e266ec281d/vllm/model_executor/layers/fused_moe/experts/gpt_oss_triton_kernels_moe.py#L132-L175",
+      "note": "Every duplicate observed across the seven producer-backed CPU controls wrote the oracle value. The unmodified compiled B300 route matched four stable-sort oracle cells. A paired GPU timing or concurrency comparison remains open."
+    }
+  ],
+  "status": "counterexample"
+}
