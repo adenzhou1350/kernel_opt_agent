@@ -1,0 +1,26 @@
+{
+  "id": "elastic-expert-count-before-scale-resize",
+  "title": "Check rank-local expert counts before resizing quantization scales during Elastic EP",
+  "applies_when": "An Elastic EP resize changes the global physical expert count and a MoE INT8 or FP8 scale allocation appears to use a different expert count from the rank-local weight loop.",
+  "lesson": "Trace constructor argument values and the actual reconfiguration policy. In vLLM 539366a, RoutedExperts passes num_local_experts as create_weights(num_experts=...). Elastic EP preserves that rank-local count and computes the new global physical count as local count times the new EP size. The staged modular kernel reuses the quantization config. Bind config, map and quantizer functions to exact Git blobs before running CPU checks. Verify global map coverage and rank-local scale/weight extents. Holding the global count fixed makes EP 2 to 4 produce 32 rather than 64 local experts. Separately injecting the global count as the allocation count produces extra all-zero INT8 scale rows while the quantized local weights stay identical. Compare both extents, since checking only weight numerics misses this control.",
+  "avoid_when": "The CPU map check uses substituted group metadata and a small config shape. It covers linear and round-robin maps for EP 2 to 4, 4 to 2, 3 to 5 and 5 to 3. The INT8 component check uses injected layer metadata, a parameter setter and TP1, with CUDA hidden. These checks do not qualify a live distributed transition, shared-expert slots, checkpoint loading, other frameworks, or kernels. Reopen for a supported path that actually changes the rank-local weight or scale dimension.",
+  "evidence": [
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/539366a773793e8219fb5d5699d0778e75f271a7/vllm/model_executor/layers/fused_moe/routed_experts.py#L220-L231",
+      "note": "The online weight constructor receives the rank-local count."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/539366a773793e8219fb5d5699d0778e75f271a7/vllm/distributed/elastic_ep/elastic_execute.py#L389-L405",
+      "note": "The pinned CPU component check exercises this exact config function and the expert map, with CUDA hidden. Receipt SHA-256 1b78e55169b1d4192750ab4f76f9f06c9a5e7ff93c1d41fbd595eee5870f22d2."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/539366a773793e8219fb5d5699d0778e75f271a7/vllm/model_executor/layers/fused_moe/eep_reconfigure.py#L60-L122",
+      "note": "The staged modular kernel receives the initialized quantization configuration. This part was inspected as source."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/539366a773793e8219fb5d5699d0778e75f271a7/vllm/model_executor/layers/quantization/online/int8.py#L60-L105",
+      "note": "Exact INT8 quantizer and amax functions executed on CPU BF16 inputs. Scale rows stay 64 for each input; injected global-count controls grow to 128, 192, 256 and 320. Receipt SHA-256 f0f95a4667c67af41a42b2632553c1da54c169672b2ccf553d03ef71578fa043."
+    }
+  ],
+  "status": "counterexample"
+}
