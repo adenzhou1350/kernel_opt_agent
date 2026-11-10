@@ -217,6 +217,41 @@ conditional arithmetic, never an automatic certificate, PR decision or proof
 that the given implementation is optimal. For deeper conditional-bound research,
 see the existing optional performance-limit tools.
 
+### Worked example with a real SKU
+
+```sh
+python scripts/kernel_opt.py hardware-profile estimate \
+  --model hardware/examples/rtx5090-cold-copy.json
+```
+
+The RTX 5090 example yields a 299.59 µs conditional lower bound from
+536,870,912 off-chip bytes and the rated 1.792 TB/s. It requires a cold
+source and a destination committed to external memory within the measured
+interval. A CUDA event around an ordinary copy does not establish those
+conditions. Keep the observed latency empty until a matching experiment.
+[NVIDIA reference memory rate](https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/)
+
+The archived 5090 CUDA Graph probe instead measures separate one-direction
+kernels. Recomputing each median from its 25 event samples, then dividing
+logical bytes by time, gives these historical rates in decimal TB/s.
+[Raw samples](measurements/nvidia/rtx5090_sm120_gpu6/cuda13.3_driver595.45.04/cuda_core_service_v1/raw_results.json)
+
+| Logical work per kernel | Read | Write |
+| ---: | ---: | ---: |
+| 16 MiB | 3.507 | 2.960 |
+| 64 MiB | 3.975 | 3.300 |
+| 128 MiB | 1.489 | 1.630 |
+| 256 MiB | 1.507 | 1.612 |
+
+Each graph repeatedly operates on the same allocation, with distinct
+16 MiB slices within a kernel. The working-set change is consistent with
+a different cache regime. Physical traffic remained unobserved because
+counter access was denied. Keep these legacy samples out of the numerical
+copy model. To compare against its bound, verify the cold source and
+destination writeback within the actual timing interval, or state a different
+boundary and model its mandatory traffic separately.
+[Counter access record](measurements/nvidia/rtx5090_sm120_gpu6/ncu_counter_access.json)
+
 ## Keep reusable knowledge, not a machine-status archive
 
 Keep raw profiles, UUIDs, host access details and environment logs local. Publish

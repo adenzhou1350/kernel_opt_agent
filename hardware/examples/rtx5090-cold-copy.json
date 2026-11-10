@@ -1,0 +1,18 @@
+{
+  "device": "RTX 5090 at the reference 28 Gb/s GDDR7 data rate",
+  "workload": "Copy a cold, incompressible 256 MiB device buffer to a distinct destination on one GPU",
+  "assumptions": [
+    "The complete source starts in external memory and the destination must be committed there by the timing boundary.",
+    "The permitted copy uses distinct, uncompressed storage and the reference memory clock."
+  ],
+  "resources": [
+    {
+      "name": "external GDDR7",
+      "unit": "bytes",
+      "minimum_work": 536870912,
+      "minimum_work_basis": "One complete 256 MiB off-chip read and one complete 256 MiB off-chip write.",
+      "upper_rate_per_second": 1792000000000,
+      "upper_rate_basis": "NVIDIA reference 28 Gb/s per pin and 512-bit memory interface, 1.792 TB/s rated peak. https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/"
+    }
+  ]
+}
