@@ -103,10 +103,45 @@ class HardwareHandoffTests(unittest.TestCase):
         self.assertEqual(report["topology_status"], "NOT_QUERIED")
         self.assertGreater(len(report["decision_dependent_gaps"]), 0)
         self.assertIsNone(report["cuda_memory_total_bytes"])
+        self.assertEqual(report["pcie_endpoint_raw_limits"], {})
         rendered = handoff.render_handoff(report)
         self.assertIn("No numerical capacity-rate or calibration evidence", rendered)
         self.assertIn("UNKNOWN", rendered)
         self.assertEqual(report["host_rdma_device_observation"]["status"], "NOT_QUERIED")
+
+    def test_pcie_endpoint_keeps_capture_rate_and_maximum_separate(self):
+        data = snapshot()
+        endpoint = {
+            "uuid": "GPU-b",
+            "identity_status": "SAME_BDF_UUID_MATCH",
+            "pci_link": {
+                "current_link_speed": "2.5 GT/s PCIe",
+                "current_link_width": "16",
+                "max_link_speed": "32.0 GT/s PCIe",
+                "max_link_width": "16",
+            },
+        }
+        data["host_metadata"] = {"devices": [endpoint]}
+        report = self.report(data)
+        limits = report["pcie_endpoint_raw_limits"]
+        self.assertEqual(
+            limits["current"]["raw_bytes_per_second_per_direction"], 5_000_000_000
+        )
+        self.assertEqual(
+            limits["max"]["raw_bytes_per_second_per_direction"], 64_000_000_000
+        )
+        self.assertEqual(report["supplied_rates_not_independently_verified"], [])
+        rendered = handoff.render_handoff(report)
+        self.assertIn("5 GB/s raw per direction", rendered)
+        self.assertIn("64 GB/s raw per direction", rendered)
+        self.assertIn("does not establish the upstream path", rendered)
+        endpoint["pci_link"]["max_link_speed"] = "64.0 GT/s PCIe"
+        max_limit = self.report(data)["pcie_endpoint_raw_limits"]["max"]
+        self.assertEqual(max_limit["raw_bytes_per_second_per_direction"], 128_000_000_000)
+        endpoint["pci_link"]["max_link_width"] = "Unknown"
+        self.assertEqual(set(self.report(data)["pcie_endpoint_raw_limits"]), {"current"})
+        endpoint["identity_status"] = "DIFFERENT_IDENTITY_LAYERS"
+        self.assertEqual(self.report(data)["pcie_endpoint_raw_limits"], {})
 
     def test_sysfs_ports_and_namespace_device_absence_survive_handoff(self):
         data = snapshot()

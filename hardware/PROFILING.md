@@ -70,6 +70,18 @@ unknown topology. No retry/install loop is needed to discover this limitation.
 PCIe negotiated GT/s, NVLink labels and RDMA port Gb/s are not application
 bandwidth and do not prove that a transport path is usable.
 
+When Linux sysfs identifies the same PCI endpoint and GPU UUID, the handoff
+also shows raw PCIe line-rate limits in each direction. It applies
+`GT/s × lanes × 10^9 / 8` to each complete current or maximum field pair
+separately. A 5090 captured at 2.5 GT/s ×16 has a 5 GB/s raw capture-time
+limit. Its reported endpoint capability of 32 GT/s ×16 gives 64 GB/s raw.
+The capture can change with link state. The maximum describes this endpoint,
+while an upstream bridge or root port may have a lower limit. Both figures
+exclude deductions for encoding, FLIT overhead and transaction headers.
+Keep actual DMA payload throughput in the empirical measurements.
+[PCI-SIG raw rate convention](https://pcisig.com/what-bit-rates-does-pcie-50-specification-support-and-how-does-it-compare-prior-pcie-generations)
+and [PCIe 6.0 framing](https://pcisig.com/pci-express-6.0-specification).
+
 The older `hardware-discover` tool can compile its CUDA device-property helper;
 it is not required for this first-layer handoff.
 

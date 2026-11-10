@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 
 from hardware_profile import number, text
 
@@ -82,6 +83,35 @@ def checked_rates(bundle, uuid, profile_sha256):
             )
         number(row.get("value"), "rate value", positive=True)
     return copy.deepcopy(rows)
+
+
+def pcie_endpoint_raw_limits(host_device):
+    """Derive local per-direction line-rate limits from paired sysfs fields."""
+    link = host_device.get("pci_link")
+    if host_device.get("identity_status") != "SAME_BDF_UUID_MATCH" or not isinstance(
+        link, dict
+    ):
+        return {}
+
+    limits = {}
+    for kind in ("current", "max"):
+        speed = link.get(f"{kind}_link_speed")
+        width = link.get(f"{kind}_link_width")
+        if not isinstance(speed, str) or not isinstance(width, str):
+            continue
+        match = re.fullmatch(
+            r"(2\.5|5\.0|8\.0|16\.0|32\.0|64\.0|128\.0) GT/s PCIe", speed
+        )
+        if match is None or width not in {"1", "2", "4", "8", "12", "16", "32"}:
+            continue
+        gt_per_second = float(match[1])
+        lanes = int(width)
+        limits[kind] = {
+            "gt_per_second_per_lane": gt_per_second,
+            "lanes": lanes,
+            "raw_bytes_per_second_per_direction": int(gt_per_second * 125_000_000) * lanes,
+        }
+    return limits
 
 
 def build_handoff(profile, *, profile_sha256, device_uuid=None, rates=None):
@@ -201,6 +231,7 @@ def build_handoff(profile, *, profile_sha256, device_uuid=None, rates=None):
         "identity_scope": "Reported device/instance only; not proof of a whole physical GPU. CUDA ordinals may be remapped; UUID-v1 is not sufficient for a MIG join.",
         "management_observations": copy.deepcopy(smi),
         "host_device_observations": copy.deepcopy(host_device),
+        "pcie_endpoint_raw_limits": pcie_endpoint_raw_limits(host_device),
         "host_kernel_driver_observation": host.get("kernel_driver"),
         "host_rdma_port_observations": copy.deepcopy(host.get("rdma_ports", [])),
         "host_rdma_device_observation": copy.deepcopy(
@@ -310,6 +341,23 @@ def render_handoff(report):
         lines.append(
             f"- {cell(edge['source'])} → {cell(edge['target'])}: {cell(edge['relationship'])}; achieved bandwidth UNKNOWN."
         )
+    pcie_limits = report.get("pcie_endpoint_raw_limits", {})
+    if pcie_limits:
+        lines.append(
+            "PCIe endpoint raw limits per direction, without deducting encoding, framing or protocol overhead. "
+            "Current is a capture-time state. Endpoint capability does not establish the upstream path or measured DMA throughput."
+        )
+        for kind, label in (
+            ("current", "Captured current"),
+            ("max", "Endpoint maximum capability"),
+        ):
+            if kind not in pcie_limits:
+                continue
+            row = pcie_limits[kind]
+            lines.append(
+                f"- {label}: {row['gt_per_second_per_lane']:g} GT/s ×{row['lanes']} → "
+                f"{row['raw_bytes_per_second_per_direction'] / 1e9:g} GB/s raw per direction."
+            )
     lines.append("")
     if not report["supplied_rates_not_independently_verified"]:
         lines.append(
