@@ -19,7 +19,7 @@
     },
     {
       "url": "https://huggingface.co/RedHatAI/Qwen3-30B-A3B-quantized.w4a16/tree/1c842a5000febac4b335c94a04789a9d4756a18e",
-      "note": "Pinned expert-0 gate/down prefixes witness at least one zero code in both projections of all 48 layers under the traced TP1 loader. Every witness appears within 2 KiB. A positive prefix can justify early return. A negative prefix still requires the full projection scan. Prefix-first performance and other checkpoints remain unmeasured."
+      "note": "Pinned expert-0 prefixes witness zeros within 2 KiB in both projections of all 48 layers under the traced TP1 loader. A negative prefix still requires a full scan. On B300, host-synchronized prefix-first showed no stable real W2 win over a single packed scan (0.226 vs 0.217 ms arm medians, 7/12 faster paired blocks) and cost an extra 43–65 µs paired median on late-zero and no-zero controls. Keep the single packed scan for the measured hybrid."
     }
   ],
   "status": "validated"
