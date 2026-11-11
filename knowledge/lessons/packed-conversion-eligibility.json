@@ -3,7 +3,7 @@
   "title": "Check packed weight conversion eligibility before allocating an unpacked projection",
   "applies_when": "A post-load weight converter expands a packed projection to test a predicate that may return the input unchanged, such as Humming symmetric INT2–INT8 MoE re-encoding.",
   "lesson": "Preserve the scope and representation of the original eligibility check. In Humming offset-binary weights, code zero represents the most negative value and numerical zero is the midpoint. One code zero rejects conversion for the entire projection. Check packed fields directly before unpacking, including fields split across words. Independent per-expert conversion can mix incompatible weight representations. If conversion is chunked, decide eligibility globally first and verify schema, output bytes, pass-through identity and zero-point branches. Separate maximum live scratch from total unpacked bytes and launch count. For the measured INT4 W2 shape, Humming #200's 4 MiB unpack cap implies 192 chunk unpacks to scan and another 192 on the no-zero conversion path. Measure both predicate outcomes with the same input and runtime.",
-  "avoid_when": "Verify packing, padding and code semantics for the actual format. The B300 measurement compares the original and a packed gate on one published Qwen3-30B-A3B layer-0 W2 in Humming 0.1.19. Humming #200 uses a different implementation. Its verified CPU method equivalence and source-derived chunk counts leave native latency and allocator peak open. Full-model loading, output quality and inference performance remain unmeasured.",
+  "avoid_when": "Verify packing, padding and code semantics for the actual format. The B300 three-arm measurement covers one published Qwen3-30B-A3B layer-0 W2 on the early-return path. The local packed gate still uses the original conversion when no zero code is found. Measure that path before selecting an implementation for both outcomes. Full-model loading, output quality and inference performance remain unmeasured.",
   "evidence": [
     {
       "url": "https://github.com/vllm-project/humming/blob/452e0bb15f72cc3db68af583d04425bc997dbaaa/humming/schema/humming.py#L1875-L1922",
@@ -15,7 +15,7 @@
     },
     {
       "url": "https://github.com/vllm-project/humming/blob/03b2200ef8688ae9307ce9132823afa619187df8/humming/schema/humming.py",
-      "note": "PR #200 exact method bounds each unpack and accumulates one projection-wide predicate before re-encoding. CPU packed-word adapter matches its parent on 56 INT2–INT8 cells, including cross-chunk zeros and zero-point handling. The operation count is derived from the pinned chunk size and W2 shape."
+      "note": "PR #200 exact method matches its parent on 56 INT2–INT8 CPU cells. A same-run B300 comparison with the 0.1.19 pack/unpack runtime returned unchanged objects for all three arms. Median synchronized method time and extra Torch peak were 1.362 ms / 960 MiB for whole unpack, 8.666 ms / about 5 MiB for the exact chunked method, and 0.112 ms / 512 B for the local packed gate. The measured shape takes the early return. Small no-zero CUDA cases checked correctness only."
     }
   ],
   "status": "validated"
