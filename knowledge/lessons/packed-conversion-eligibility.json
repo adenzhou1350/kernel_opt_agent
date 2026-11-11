@@ -16,6 +16,10 @@
     {
       "url": "https://github.com/vllm-project/humming/blob/03b2200ef8688ae9307ce9132823afa619187df8/humming/schema/humming.py",
       "note": "PR #200 exact method matches its parent on 56 CPU cells. A later B300 comparison used the exact head and a local packed predicate followed by the same chunked converter. On real W2 early return, whole unpack, exact #200, and the hybrid took 1.366, 7.764, and 0.230 ms with extra peaks of 960 MiB, about 5 MiB, and 512 B. On synthetic no-zero INT4 they took 0.531, 3.026, and 2.061 ms, with extra peaks of 384, 28, and 28 MiB. All output/schema comparisons passed."
+    },
+    {
+      "url": "https://huggingface.co/RedHatAI/Qwen3-30B-A3B-quantized.w4a16/tree/1c842a5000febac4b335c94a04789a9d4756a18e",
+      "note": "Pinned expert-0 gate/down prefixes witness at least one zero code in both projections of all 48 layers under the traced TP1 loader. Every witness appears within 2 KiB. A positive prefix can justify early return. A negative prefix still requires the full projection scan. Prefix-first performance and other checkpoints remain unmeasured."
     }
   ],
   "status": "validated"
