@@ -1,0 +1,18 @@
+{
+  "id": "instruction-variant-before-architecture-gate",
+  "title": "Check the emitted instruction variant before changing a GPU architecture gate",
+  "applies_when": "A CUDA/Triton feature appears unsupported on a GPU family, especially Tensor Descriptor gather4 on sm120, or a hardware profile is being reused to admit an operator path.",
+  "lesson": "Bind the exact PTX version, target and instruction qualifiers before inferring support from an architecture name. PTX9.3 distinguishes gather4 with shared::cta destination (sm100 or higher) from shared::cluster destination (restricted architecture/family targets). A cluster-form rejection therefore does not prove that every gather4 form fails on RTX5090/sm120. Inspect the actual generated PTX from the target compiler, prove the selected branch is reached and compare a bounded real numerical workload with its pointer/reference path before changing a capability guard. Keep the ISA fact separate from compiler lowering and measured operator behavior.",
+  "avoid_when": "Do not transfer this statement to other PTX revisions, destination scopes, multicast/tcgen05 instructions or compiler versions without checking their own constraints. Compilation or a few numerical cases do not establish all-shape support, model accuracy, speedup or a performance ceiling. Do not change a correct gate merely because another kernel emitted an unsupported variant.",
+  "evidence": [
+    {
+      "url": "https://docs.nvidia.com/cuda/archive/13.3.0/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-cp-async-bulk-tensor",
+      "note": "PTX9.3 Target ISA Notes give different target constraints for shared::cta and shared::cluster forms of tile::gather4."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/191e5d5df2ec693d5536a635079d58864dfacebb/tests/kernels/moe/test_moe.py#L1011-L1134",
+      "note": "Pinned upstream forced-config/modular WNA16 tests compare TD with pointer and Torch reference, assert actual USE_TD launch flags and include a single-token fallback. A future reproduction still needs a matching native environment and hardware."
+    }
+  ],
+  "status": "validated"
+}
