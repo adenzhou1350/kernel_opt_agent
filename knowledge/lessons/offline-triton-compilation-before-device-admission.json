@@ -1,0 +1,22 @@
+{
+  "id": "offline-triton-compilation-before-device-admission",
+  "title": "Match Triton's version and compile a reviewed kernel before requesting a GPU",
+  "applies_when": "A Triton kernel fails during compilation, the GPU is busy or unavailable, and a reviewed standalone declaration plus its relevant pointer types and constexpr branches can reproduce the question.",
+  "lesson": "Read the report's compiler requirement before selecting an installed environment. A pass on another Triton version does not reproduce that requirement: the merged scalar block-scale repair addresses rank-0 slicing rejected by 3.9. Where supported, use ASTSource with an explicit GPUTarget and triton.compile to inspect compiler artifacts without loading or launching them. Bind the exact compiler wheel/import path, source bytes, target architecture, signature, constexprs and options. Keep scalar/vector and layout controls plus original/repaired declarations unchanged. Distinguish interpreter execution, frontend rejection, emitted cubin, driver loading and device numerics. A successful cubin emission can answer a compilation question while GPU execution remains unavailable. Triton may carry its own ptxas, so missing nvcc on the host PATH is not proof that this private compiler cannot run.",
+  "avoid_when": "Compilation executes Python and native tools; review the module, use suitable CPU isolation and limits, and do not grant generated code an unsandboxed host route. Explicit target selection alone does not make every API GPU-independent: the full AOT CLI also accesses the active driver for launch-stub generation. Do not invoke warmup, load/run methods or a default-device lookup and still call it compile-only. Exact-AST extraction is a component adapter, not a full package/caller import or launch-specialization contract. Do not generalize one signature, architecture or successful older-version interpreter run to all dtypes, models or GPU behavior. Compiler admission does not prove driver/ISA compatibility, numerical correctness, performance, saved GPU time or better Scout conversion. Account for environment acquisition and owner work separately from compiler-command time.",
+  "evidence": [
+    {
+      "url": "https://github.com/triton-lang/triton/blob/b7ddcf86c095de79527ba3098503e73158bb94bd/python/triton/tools/compile.py",
+      "note": "Triton3.9's own tool constructs ASTSource and calls triton.compile with a target. It later accesses runtime.driver.active to generate launch stubs; this supports distinguishing the direct compiler path from the whole CLI."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/pull/66274",
+      "note": "The merged report explicitly targets a Triton3.9 rank-0 scale-slicing compile failure. Its reported GB200 serving validation is secondary evidence, not our device or model qualification."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/6713d05d6cfcec529394f7bb32ce5ec9a09e7d85/vllm/model_executor/layers/fused_moe/fused_moe.py",
+      "note": "The existing repair uses the pointer-shape condition again at accumulation, broadcasting a scalar directly and retaining vector slicing for other groups in both SWAP_AB orientations."
+    }
+  ],
+  "status": "validated"
+}
