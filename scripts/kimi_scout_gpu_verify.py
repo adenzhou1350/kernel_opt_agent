@@ -137,12 +137,12 @@ def snapshot(gpu_uuid):
     rows = query(
         [
             "--id=" + gpu_uuid,
-            "--query-gpu=uuid,index,memory.total,memory.used,utilization.gpu",
+            "--query-gpu=uuid,index,memory.total,memory.used,memory.free,utilization.gpu",
         ]
     )
     if (
         len(rows) != 1
-        or len(rows[0]) != 5
+        or len(rows[0]) != 6
         or rows[0][0].strip().lower() != gpu_uuid.lower()
     ):
         raise ValueError("nvidia-smi did not identify the exact selected GPU")
@@ -157,9 +157,22 @@ def snapshot(gpu_uuid):
         "index": int(row[1]),
         "total_mib": int(row[2]),
         "memory_mib": int(row[3]),
-        "utilization": int(row[4]),
+        "free_mib": int(row[4]),
+        "utilization": int(row[5]),
         "processes": [p for p in processes if p[0].strip().lower() == gpu_uuid.lower()],
     }
+
+
+def _checked_headroom(sample, gpu_uuid):
+    total, used, free, utilization = (
+        sample[key] for key in ("total_mib", "memory_mib", "free_mib", "utilization")
+    )
+    if (sample["uuid"].lower() != gpu_uuid.lower()
+            or any(type(value) is not int for value in (total, used, free, utilization))
+            or total <= 0 or not 0 <= used <= total or not 0 <= free <= total
+            or not 0 <= utilization <= 100):
+        raise ValueError("invalid GPU identity or counters")
+    return free, utilization
 
 
 def idle_samples(gpu_uuid):
@@ -169,11 +182,9 @@ def idle_samples(gpu_uuid):
         if index:
             time.sleep(1)
         sample = snapshot(gpu_uuid)
+        free, utilization = _checked_headroom(sample, gpu_uuid)
         samples.append(sample)
-        if (
-            sample["total_mib"] - sample["memory_mib"] < MIN_HEADROOM_MIB
-            or sample["utilization"] > MAX_UTILIZATION
-        ):
+        if free < MIN_HEADROOM_MIB or utilization > MAX_UTILIZATION:
             raise RuntimeError(
                 "selected GPU lacks bounded headroom: " + json.dumps(sample)
             )
@@ -201,11 +212,7 @@ class NativeGpuGuard:
 
     def observe(self, phase):
         sample = snapshot(self.uuid)
-        total, used, utilization = (sample[key] for key in ("total_mib", "memory_mib", "utilization"))
-        if (sample["uuid"].lower() != self.uuid.lower()
-                or any(type(value) is not int for value in (total, used, utilization))
-                or not 0 <= used <= total or total <= 0 or not 0 <= utilization <= 100):
-            raise ValueError("invalid GPU identity or counters")
+        free, utilization = _checked_headroom(sample, self.uuid)
         sample = dict(sample, observed_at=time.time(),
                       processes=[[row[0], row[1], row[2][:256]] for row in sample["processes"][:64]],
                       processes_truncated=len(sample["processes"]) > 64,
@@ -217,7 +224,6 @@ class NativeGpuGuard:
             self.evidence["latest_running"] = sample
         else:
             self.evidence["postflight"] = sample
-        free = total - used
         previous = self.evidence["minimum_free_mib"]
         self.evidence["minimum_free_mib"] = free if previous is None else min(previous, free)
         previous = self.evidence["maximum_utilization"]
