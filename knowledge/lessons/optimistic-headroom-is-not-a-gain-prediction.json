@@ -1,0 +1,18 @@
+{
+  "id": "optimistic-headroom-is-not-a-gain-prediction",
+  "title": "Convert a perfect-removal ceiling into required headroom before tuning",
+  "applies_when": "Prioritizing an optimization from a conditional whole-workload speedup ceiling, or interpreting a profiler opportunity or hardware proxy as expected runtime gain.",
+  "lesson": "Separate a perfect-removal ceiling from a feasible implementation and an expected gain. Under an additive elapsed-time model with unchanged residual work, a perfect-removal speedup U > 1 implies a removable baseline fraction f = 1 - 1/U. Reaching a chosen whole-workload speedup G > 1 requires removing r = (1 - 1/G)/f of that fraction, before any new overhead. This is a derivation from Amdahl's model, not a new empirical prediction method. For example, U = 1.021 and G = 1.02 require about 95.3% removal: barely clearing a goal with the ceiling leaves little allowance for mandatory work, conversions, allocations or synchronization. Check the cheapest discriminating feasibility experiment before expensive implementation; do not impose a universal percentage cutoff. Preserve the matched baseline, workload, numerical tolerance and memory budget. Treat occupancy and other hardware metrics as diagnostic proxies, and remeasure runtime independently; a profiler estimate and an achieved proxy change are not interchangeable quantities.",
+  "avoid_when": "If U < G, only this model excludes G, not every possible redesign. Do not sum overlapping profiler ranges into f or apply the scalar formula blindly to rank-max, pipelined or changing-critical-path execution. Changed residual work, cache behavior, precision or parallelism can invalidate the comparison. The ratio computed from an observed speedup is a model diagnostic, not directly measured removal efficiency. A profiler opportunity is not a promised speedup, and failing to attain it alone does not falsify its cost model. Ranks, steps and buckets are correlated observations, not independent optimization tasks. Include failed attempts and setup when comparing search costs; successful timing cells alone are not total cost.",
+  "evidence": [
+    {
+      "url": "https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#strong-scaling-and-amdahl-s-law",
+      "note": "Official fixed-workload Amdahl formulation supports the conditional removable-fraction derivation. It does not supply a calibrated expected gain for an implementation."
+    },
+    {
+      "url": "https://pytorch.org/blog/one-search-two-layers-compiler-controls-inside-pytorch-helion-using-nvidia-compileiq/",
+      "note": "Primary authored GB200 NVFP4 GEMV example separately reports an NCU occupancy opportunity, proxy-objective search and independently remeasured runtime. These quantities are distinct; this is supporting workflow evidence, not our reproduction or a proof of a general prediction gap."
+    }
+  ],
+  "status": "validated"
+}
