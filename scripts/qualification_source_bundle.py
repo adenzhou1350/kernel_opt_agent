@@ -44,8 +44,13 @@ def canonical_json(value: dict) -> bytes:
 
 
 def local_git_environment() -> dict[str, str]:
-    """Do not turn an object read into a promisor fetch or credential prompt."""
-    return {**os.environ, "GIT_NO_LAZY_FETCH": "1", "GIT_TERMINAL_PROMPT": "0"}
+    """Read original objects without replacement refs, fetches or prompts."""
+    return {
+        **os.environ,
+        "GIT_NO_REPLACE_OBJECTS": "1",
+        "GIT_NO_LAZY_FETCH": "1",
+        "GIT_TERMINAL_PROMPT": "0",
+    }
 
 
 def git(repo: Path, *args: str) -> bytes:

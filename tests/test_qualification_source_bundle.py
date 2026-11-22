@@ -60,11 +60,13 @@ def source_repo(tmp_path: Path) -> tuple[Path, str, bytes]:
     (repo / "nested").mkdir()
     (repo / "nested" / "payload.bin").write_bytes(payload)
     (repo / "run.sh").write_bytes(b"#!/bin/sh\nexit 0\n")
-    (repo / ".gitattributes").write_text(
-        "ignored.txt export-ignore\nsubstitution.txt export-subst\n", encoding="utf-8"
+    if os.name != "nt":
+        (repo / "run.sh").chmod(0o755)
+    (repo / ".gitattributes").write_bytes(
+        b"ignored.txt export-ignore\nsubstitution.txt export-subst\n"
     )
-    (repo / "ignored.txt").write_text("must remain\n", encoding="utf-8")
-    (repo / "substitution.txt").write_text("$Format:%H$\n", encoding="utf-8")
+    (repo / "ignored.txt").write_bytes(b"must remain\n")
+    (repo / "substitution.txt").write_bytes(b"$Format:%H$\n")
     run(repo, "add", ".")
     run(repo, "update-index", "--chmod=+x", "run.sh")
     run(repo, "commit", "-m", "fixture")
@@ -918,3 +920,39 @@ def test_safe_relative_symlink_round_trip(tmp_path: Path) -> None:
     extract_bundle(tar_bytes, verified, target)
     assert (target / "source" / "nested" / "payload-link").is_symlink()
     assert any(entry["type"] == "symlink" for entry in value["entries"])
+
+
+@pytest.mark.parametrize("replacement_kind", ["commit", "tree", "blob"])
+def test_local_replacements_do_not_change_commit_exact_bundle(
+    tmp_path: Path, replacement_kind: str
+) -> None:
+    repo, commit, _ = source_repo(tmp_path)
+    tree = run(repo, "rev-parse", f"{commit}^{{tree}}")
+    blob = run(repo, "rev-parse", f"{commit}:nested/payload.bin")
+    (repo / "nested/payload.bin").write_bytes(b"local replacement\n")
+    run(repo, "commit", "-am", "replacement fixture")
+    replacement = run(repo, "rev-parse", "HEAD")
+    replacements = {
+        "commit": (commit, replacement),
+        "tree": (tree, run(repo, "rev-parse", "HEAD^{tree}")),
+        "blob": (blob, run(repo, "rev-parse", "HEAD:nested/payload.bin")),
+    }
+    clean_archive, clean_manifest = bundle_paths(tmp_path, "clean")
+    clean = build_bundle(
+        repo, commit, REPOSITORY, "source", clean_archive, clean_manifest
+    )
+    old, new = replacements[replacement_kind]
+    run(repo, "replace", old, new)
+    refs = run(repo, "replace", "-l")
+    status = run(repo, "status", "--porcelain")
+    try:
+        archive, manifest = bundle_paths(tmp_path, "with-local-replacement")
+        actual = build_bundle(repo, commit, REPOSITORY, "source", archive, manifest)
+        assert run(repo, "replace", "-l") == refs
+        assert run(repo, "status", "--porcelain") == status
+        assert actual == clean
+        assert archive.read_bytes() == clean_archive.read_bytes()
+        assert manifest.read_bytes() == clean_manifest.read_bytes()
+    finally:
+        run(repo, "replace", "-d", old)
+
