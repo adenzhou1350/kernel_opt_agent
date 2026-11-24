@@ -2,12 +2,20 @@
   "id": "measured-rate-is-not-a-physical-ceiling",
   "title": "Keep empirical service rates separate from physical capacity bounds",
   "applies_when": "Estimating kernel headroom from a GPU specification, bandwidth microbenchmark, GEMM rate or fitted service curve.",
-  "lesson": "A conditional time lower bound needs necessary work for the permitted algorithm family and an applicable upper resource capacity. A measured rate is instead an achieved reference conditioned on shape, cache, precision, clocks and execution mode. Keep these values separate; an observation faster than the model predicts is evidence to revisit the model, not proof of exceeding hardware limits. Use resource-specific analysis to select the next experiment, then validate the production workload.",
-  "avoid_when": "Do not substitute current implementation traffic for an algorithmic minimum, use nominal-clock or sparse low-precision peaks as unconditional dense bounds, label cache-resident traffic as DRAM bandwidth, or treat a maximum of resource times as proof that an executable schedule attains it.",
+  "lesson": "A conditional time lower bound needs necessary work for the permitted algorithm family and an applicable upper resource capacity. Normalize vendor rates by exact SKU, per-device versus system scope, and precision/sparsity footnotes before using them. A measured rate is instead an achieved reference conditioned on shape, cache, precision, clocks and execution mode. Keep these values separate; an observation faster than the model predicts is evidence to revisit the model, not proof of exceeding hardware limits. Use resource-specific analysis to select the next experiment, then validate the production workload.",
+  "avoid_when": "Do not substitute current implementation traffic for an algorithmic minimum, use nominal-clock or sparse low-precision peaks as unconditional dense bounds, transfer GB300 figures to an HGX B300 instance by architecture name alone, label cache-resident traffic as DRAM bandwidth, or treat a maximum of resource times as proof that an executable schedule attains it.",
   "evidence": [
     {
       "url": "https://docs.nvidia.com/nsight-compute/ProfilingGuide/",
       "note": "Official resource and Roofline analysis distinguishes hardware capacity, achieved utilization and memory hierarchy. This supports the modeling distinction, not a measured rate or optimality claim for any particular device or kernel."
+    },
+    {
+      "url": "https://dam-cdn.nvd.orangelogic.com/AssetLink/1k0p832eq8r5ca0u5383ie5o4tp3bst1.pdf",
+      "note": "NVIDIA Blackwell Ultra datasheet (October 2025), p. 5: per-GPU FP16/BF16 is 4.5 PFLOPS for HGX B300 versus 5 PFLOPS for GB300 NVL72. Footnote 2 defines these as sparse and dense as half, giving nominal dense 2.25 versus 2.5 PFLOPS. These SKU-specific ratings are not unconditional runtime bounds or achieved rates."
+    },
+    {
+      "url": "https://www.nvidia.com/en-us/data-center/hgx/",
+      "note": "The HGX B300 table describes an eight-GPU system: 36 PFLOPS BF16 is sparse, with dense half that value. Divide by both the sparsity factor and GPU count for a per-device dense reference; do not assign the system figure to one visible GPU."
     }
   ],
   "status": "validated"
