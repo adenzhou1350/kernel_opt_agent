@@ -61,6 +61,37 @@ unknown topology. No retry/install loop is needed to discover this limitation.
 PCIe negotiated GT/s, NVLink labels and RDMA port Gb/s are not application
 bandwidth and do not prove that a transport path is usable.
 
+When an optimization depends on NVLink, the installed management tool can add
+passive detail without launching a CUDA workload. Select one exact UUID and
+check `nvidia-smi nvlink --help` before using version-dependent queries:
+
+```sh
+nvidia-smi nvlink --status --id GPU-<exact-UUID>
+nvidia-smi nvlink --capabilities --id GPU-<exact-UUID>
+nvidia-smi nvlink --pcibusid --id GPU-<exact-UUID>
+nvidia-smi nvlink --getLinkWidth --id GPU-<exact-UUID>
+```
+
+Retain the original output, command/version and before/after device mapping.
+[NVIDIA documents](https://docs.nvidia.com/deploy/nvidia-smi/index.html#nvlink)
+that status reports active links' bandwidth; it is not a timed application
+transfer. Keep that reported value/unit separate from an empirical rate, and
+establish its direction, overhead and shared-fabric assumptions before deriving
+an aggregate bound. A peer-access capability is not proof that a caller uses it.
+Remote addresses such as `FFFFFFFF:FF:FF.0` do not identify a GPU peer; leave the
+remote endpoint unknown rather than inventing direct GPU-to-GPU wiring.
+
+A B300 SXM6 check with driver 595.71.05 returned 18 active status entries at
+53.125 GB/s and `Full` link width, but only placeholder remote addresses. Its
+bandwidth-mode query returned not-supported; NVIDIA deprecates that interface
+for Blackwell and newer devices. This is query-behavior evidence, not measured
+collective bandwidth or a reason to reinstall the runtime. The newer
+`--dataRate` query accounts for FEC overhead, but must not be assumed available
+when installed help omits it. No clocks, modes, widths or counters need changing
+for discovery. `hardware-profile --topology` still captures the matrix only;
+attach these optional raw observations separately instead of treating them as
+automatically parsed `handoff --rates` evidence.
+
 The older `hardware-discover` tool can compile its CUDA device-property helper;
 it is not required for this first-layer handoff.
 
