@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import random
 import statistics
 from pathlib import Path
@@ -39,6 +40,8 @@ def main():
     parser.add_argument("--min-x", type=float)
     parser.add_argument("--max-x", type=float)
     args = parser.parse_args()
+    if args.bootstrap < 1:
+        parser.error("--bootstrap must be positive")
     filters = {}
     for expression in args.filter:
         if "=" not in expression:
@@ -51,11 +54,16 @@ def main():
             if any(row.get(key) != value for key, value in filters.items()):
                 continue
             x_value = float(row[args.x])
+            if not math.isfinite(x_value):
+                raise ValueError("selected x values must be finite")
             if args.min_x is not None and x_value < args.min_x:
                 continue
             if args.max_x is not None and x_value > args.max_x:
                 continue
-            groups.setdefault(x_value, []).append(float(row[args.y]))
+            y_value = float(row[args.y])
+            if not math.isfinite(y_value):
+                raise ValueError("selected y values must be finite")
+            groups.setdefault(x_value, []).append(y_value)
     if len(groups) < 2:
         raise ValueError("at least two distinct x values remain after filtering")
     xs = sorted(groups)
@@ -64,7 +72,12 @@ def main():
     rng = random.Random(20260826)
     slopes = []
     for _ in range(args.bootstrap):
-        sampled = [rng.choice(groups[x]) for x in xs]
+        # Bootstrap the same group-median statistic used by the point estimate,
+        # rather than fitting one randomly chosen measurement at each x.
+        sampled = [
+            statistics.median([rng.choice(groups[x]) for _ in groups[x]])
+            for x in xs
+        ]
         slopes.append(ols(xs, sampled)[1])
     local = [
         {"from": a, "to": b, "slope": (ys[i + 1] - ys[i]) / (b - a)}
@@ -80,12 +93,22 @@ def main():
         "x_range": {"min": args.min_x, "max": args.max_x},
         "points": [{"x": x, "samples": groups[x], "median": y} for x, y in zip(xs, ys)],
         "fit": {"alpha": alpha, "beta": beta, "r_squared": r2, "beta_p025": quantile(slopes, 0.025), "beta_p975": quantile(slopes, 0.975)},
+        "uncertainty": {
+            "statistic": "OLS slope of the per-x sample medians",
+            "method": "within-x bootstrap with each group's original sample count",
+            "replicates": args.bootstrap,
+            "seed": 20260826,
+            "groups_with_single_sample": [x for x in xs if len(groups[x]) == 1],
+            "scope": "Conditional on observed x values and independent samples within each x; "
+            "not model-error, correlated-run, extrapolation or physical-bound uncertainty. "
+            "Singleton/constant groups can give degenerate intervals without proving certainty.",
+        },
         "local_slopes": local,
         "interpretation_required": ["intercept work", "one-repeat work", "cache semantics", "DCE guard", "source/sink pollution", "allowed and forbidden claims"],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
-    print(json.dumps(result["fit"], sort_keys=True))
+    args.output.write_text(json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n")
+    print(json.dumps(result["fit"], sort_keys=True, allow_nan=False))
 
 
 if __name__ == "__main__":

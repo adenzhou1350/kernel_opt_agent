@@ -120,6 +120,12 @@ snapshots; recheck identity/runtime/load before execution.
 4. Fit shape/size-conditioned service curves using `service-curve-fit` when useful.
    They are empirical references, not physical limits. Recheck a small canary
    after runtime, power, clock or device changes before reusing cached results.
+   The fitter uses per-x medians and bootstraps those same medians with each
+   group's observed sample count. Its interval assumes independent within-group
+   observations; it does not cover model error, correlated runs or extrapolation.
+   Singleton/constant groups can yield a zero-width interval without certainty.
+   Earlier fitter outputs without `uncertainty` used single-draw slope scatter,
+   not this median-estimator bootstrap; preserve them as historical results.
 5. Map the real model's reached operator shapes onto these references. Prioritize
    the largest plausible whole-workload improvement, implement one hypothesis,
    and compare paired correct production runs. An optimization can change the
